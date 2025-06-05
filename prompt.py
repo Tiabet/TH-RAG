@@ -4,41 +4,27 @@ Running this module will print the prompt text.
 """
 
 PROMPT = """
-You are a helpful assistant that extracts structured knowledge from raw
-document text.
+You are an expert in information extraction and knowledge organization.
+Given the following English document, perform the following tasks:
 
-Given a DOCUMENT, perform these steps:
-1. Identify all entity\-relation\-entity triplets mentioned in the text.
-2. For each unique entity, determine a TOPIC and SUBTOPIC that best describe
-   the entity based on the surrounding context in the document.
-3. For each triplet, list the sentence or sentences from the document that
-   mention both entities.
+Extract object-relation-object triples from the text. Each triple should represent a factual relationship stated or implied in the text. Use the format (subject, relation, object). Don't use python, just read the document.
 
-Respond in JSON with two top\-level keys:
-- "triplets": a list of objects each containing "entity1", "relation",
-  "entity2", and a list of "sentences".
-- "entities": a mapping of entity name to an object with "topic" and
-  "subtopic".
+For each object and subject in the extracted triples, identify:
 
-Use the following format exactly:
-{
-  "triplets": [
-    {
-      "entity1": "...",
-      "relation": "...",
-      "entity2": "...",
-      "sentences": ["..."]
-    }
-  ],
-  "entities": {
-    "EntityName": {
-      "topic": "...",
-      "subtopic": "..."
-    }
-  }
-}
+Its subtopic: a more specific category or concept it belongs to.
 
-DOCUMENT:\n"""
+Its main topic: a broader thematic area it belongs to.
+
+Present the results in the following structured format:
+
+Triple: (Subject, Relation, Object)  
+Sentence: "Exact sentence from which the triple was extracted."  
+Subject → Subtopic: [ ], Main topic: [ ]  
+Object → Subtopic: [ ], Main topic: [ ]
+
+Here is the document: 
+
+"""
 
 if __name__ == "__main__":
     print(PROMPT)
