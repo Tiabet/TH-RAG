@@ -18,19 +18,3 @@ python3 prompt.py
 ```
 
 You can also import `PROMPT` from `prompt.py` in your own code.
-
-## extract_graph.py
-
-`extract_graph.py` processes one or more text files and uses the prompt in
-`prompt.py` to extract knowledge graph data with the OpenAI `gpt-4o-mini`
-model. The text is split into chunks of 1200 tokens with an overlap of 100
-tokens before being sent to the model. All responses are written to a single
-JSON file.
-
-### Usage
-
-```
-python3 extract_graph.py input.txt -o graph.json
-```
-
-Set the `OPENAI_API_KEY` environment variable before running the script.
