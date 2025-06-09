@@ -1,0 +1,59 @@
+import json
+import networkx as nx
+import sys
+
+def build_graph(json_path, gml_path):
+    # Load JSON list of triples
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    if not isinstance(data, list):
+        raise ValueError("JSON 파일은 triple 객체들의 리스트여야 합니다.")
+
+    G = nx.MultiDiGraph()
+    seen_hierarchy = set()
+
+    for item in data:
+        # Skip if structure가 다를 경우
+        if not isinstance(item, dict) or 'subject' not in item or 'object' not in item:
+            continue
+
+        subj = item['subject']
+        obj = item['object']
+        subj_sub = subj.get('subtopic', '')
+        subj_main = subj.get('main_topic', '')
+        obj_sub = obj.get('subtopic', '')
+        obj_main = obj.get('main_topic', '')
+        relation_label = item.get('sentence', '')
+
+        # 노드 추가
+        if subj_main:
+            G.add_node(subj_main, type='topic')
+        if subj_sub:
+            G.add_node(subj_sub, type='subtopic')
+        if obj_main:
+            G.add_node(obj_main, type='topic')
+        if obj_sub:
+            G.add_node(obj_sub, type='subtopic')
+
+        # 계층적 엣지 (belongs_to)
+        if subj_sub and subj_main and (subj_sub, subj_main) not in seen_hierarchy:
+            G.add_edge(subj_sub, subj_main, label='belongs_to', hierarchy=True)
+            seen_hierarchy.add((subj_sub, subj_main))
+        if obj_sub and obj_main and (obj_sub, obj_main) not in seen_hierarchy:
+            G.add_edge(obj_sub, obj_main, label='belongs_to', hierarchy=True)
+            seen_hierarchy.add((obj_sub, obj_main))
+
+        # sentence 관계 엣지
+        if subj_sub and obj_sub:
+            G.add_edge(subj_sub, obj_sub, label=relation_label, hierarchy=False)
+
+    # GML로 저장
+    nx.write_gml(G, gml_path)
+    print(f"GML 파일이 '{gml_path}'에 저장되었습니다.")
+
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print("사용법: python json_to_gml.py <input.json> <output.gml>")
+        sys.exit(1)
+    build_graph(sys.argv[1], sys.argv[2])

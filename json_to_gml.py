@@ -1,48 +1,70 @@
 import json
 import networkx as nx
 
-def json_to_hierarchical_gml(json_path, gml_path):
-    with open(json_path, 'r') as f:
+def build_graph(json_path, gml_path):
+    # Load JSON data
+    with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    G = nx.DiGraph()
-    node_id_map = {}
-    current_id = 0
+    # Extract items list, flattening if nested lists
+    if isinstance(data, dict):
+        # Prefer common keys or first list value
+        if 'items' in data and isinstance(data['items'], list):
+            raw = data['items']
+        elif 'data' in data and isinstance(data['data'], list):
+            raw = data['data']
+        else:
+            raw = next((v for v in data.values() if isinstance(v, list)), [])
+    elif isinstance(data, list):
+        raw = data
+    else:
+        raise ValueError('Expected JSON to be a list or dict containing a list.')
 
-    def add_node(label):
-        nonlocal current_id
-        if label not in node_id_map:
-            G.add_node(current_id, label=label)
-            node_id_map[label] = current_id
-            current_id += 1
-        return node_id_map[label]
+    # Flatten one level of nested lists
+    items = []
+    for element in raw:
+        if isinstance(element, list):
+            items.extend(element)
+        else:
+            items.append(element)
 
-    for item in data:
-        subj_label, pred_label, obj_label = item["triple"]
+    # Build graph
+    G = nx.MultiDiGraph()
+    seen_hierarchy = set()
 
-        subj_id = add_node(subj_label)
-        obj_id = add_node(obj_label)
+    for item in items:
+        if not isinstance(item, dict):
+            continue  # skip non-dict entries
+        subj_sub = item['subject']['subtopic']
+        subj_main = item['subject']['main_topic']
+        obj_sub = item['object']['subtopic']
+        obj_main = item['object']['main_topic']
+        relation = item.get('sentence', '')
 
-        G.add_edge(subj_id, obj_id, label=pred_label, sentence=item["sentence"])
+        # Add nodes
+        G.add_node(subj_main, type='topic')
+        G.add_node(subj_sub, type='subtopic')
+        G.add_node(obj_main, type='topic')
+        G.add_node(obj_sub, type='subtopic')
 
-        # Subject topic hierarchy
-        subj_subtopic = item["subject"]["subtopic"]
-        subj_main_topic = item["subject"]["main_topic"]
-        subtopic_id = add_node(subj_subtopic)
-        main_topic_id = add_node(subj_main_topic)
-        G.add_edge(subj_id, subtopic_id, label="is_a_subtopic")
-        G.add_edge(subtopic_id, main_topic_id, label="belongs_to_main_topic")
+        # Hierarchical edges
+        if (subj_sub, subj_main) not in seen_hierarchy:
+            G.add_edge(subj_sub, subj_main, label='belongs_to', hierarchy=True)
+            seen_hierarchy.add((subj_sub, subj_main))
+        if (obj_sub, obj_main) not in seen_hierarchy:
+            G.add_edge(obj_sub, obj_main, label='belongs_to', hierarchy=True)
+            seen_hierarchy.add((obj_sub, obj_main))
 
-        # Object topic hierarchy
-        obj_subtopic = item["object"]["subtopic"]
-        obj_main_topic = item["object"]["main_topic"]
-        subtopic_id = add_node(obj_subtopic)
-        main_topic_id = add_node(obj_main_topic)
-        G.add_edge(obj_id, subtopic_id, label="is_a_subtopic")
-        G.add_edge(subtopic_id, main_topic_id, label="belongs_to_main_topic")
+        # Relation edge
+        G.add_edge(subj_sub, obj_sub, label=relation, hierarchy=False)
 
+    # Write GML
     nx.write_gml(G, gml_path)
+    print(f"GML file saved to {gml_path}")
 
-# 🔽 여기서 직접 실행 시에만 동작하게!
-if __name__ == "__main__":
-    json_to_hierarchical_gml("graph.json", "graph.gml")
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) != 3:
+        print('Usage: python json_to_gml.py <input.json> <output.gml>')
+        sys.exit(1)
+    build_graph(sys.argv[1], sys.argv[2])
