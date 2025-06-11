@@ -48,10 +48,10 @@ for entry in entries:
     G.add_edge(obj_st_node, obj_mt_node, label='has_topic', relation_type='topic_relation')
 
     # Add predicate edge between entities
-    G.add_edge(subj_node, obj_node, label=pred, relation_type='predicate_relation')
+    G.add_edge(subj_node, obj_node, label=pred, relation_type='predicate_relation',sentence=entry.get('sentence', ''))
 
 # Save as GEXF for Gephi
-nx.write_gexf(G, 'graph_v5.gexf')
+nx.write_gexf(G, 'graph_v6.gexf')
 
 print("Files saved:")
 print(" - graph_v5.gexf")
