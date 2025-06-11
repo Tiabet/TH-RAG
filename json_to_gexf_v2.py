@@ -2,7 +2,7 @@ import json
 import networkx as nx
 
 # Load JSON data
-with open('graph.json', 'r', encoding='utf-8') as f:
+with open('graph_v2.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 # Flatten and filter entries (triples of length 3)
@@ -51,7 +51,7 @@ for entry in entries:
     G.add_edge(subj_node, obj_node, label=pred, relation_type='predicate_relation')
 
 # Save as GEXF for Gephi
-nx.write_gexf(G, 'graph_v4.gexf')
+nx.write_gexf(G, 'graph_v5.gexf')
 
 print("Files saved:")
-print(" - graph_v4.gexf")
+print(" - graph_v5.gexf")
