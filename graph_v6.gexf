@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='utf-8'?>
+<gexf xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
+  <meta lastmodifieddate="2025-06-11">
+    <creator>NetworkX 3.4.2</creator>
+  </meta>
+  <graph defaultedgetype="directed" mode="static" name="">
+    <attributes mode="static" class="edge">
+      <attribute id="1" title="relation_type" type="string" />
+      <attribute id="2" title="sentence" type="string" />
+      <attribute id="3" title="networkx_key" type="long" />
+    </attributes>
+    <attributes mode="static" class="node">
+      <attribute id="0" title="type" type="string" />
+    </attributes>
+    <nodes>
+      <node id="entity_Storey Publishing" label="Storey Publishing">
+        <attvalues>
+          <attvalue for="0" value="entity" />
+        </attvalues>
+      </node>
+      <node id="entity_customers" label="customers">
+        <attvalues>
+          <attvalue for="0" value="entity" />
+        </attvalues>
+      </node>
+      <node id="subtopic_Business" label="Business">
+        <attvalues>
+          <attvalue for="0" value="subtopic" />
+        </attvalues>
+      </node>
+    </nodes>
+    <edges>
+      <edge source="entity_Storey Publishing" target="entity_customers" id="0" label="serves">
+        <attvalues>
+          <attvalue for="1" value="predicate_relation" />
+          <attvalue for="2" value="Storey Publishing serves customers." />
+          <attvalue for="3" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="entity_Storey Publishing" target="subtopic_Business" id="1" label="has_subtopic">
+        <attvalues>
+          <attvalue for="1" value="subtopic_relation" />
+          <attvalue for="3" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="entity_customers" target="subtopic_Business" id="2" label="has_subtopic">
+        <attvalues>
+          <attvalue for="1" value="subtopic_relation" />
+          <attvalue for="3" value="0" />
+        </attvalues>
+      </edge>
+    </edges>
+  </graph>
+</gexf>

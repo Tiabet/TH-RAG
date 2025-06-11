@@ -19,6 +19,18 @@ python3 prompt.py
 
 You can also import `PROMPT` from `prompt.py` in your own code.
 
+## Building the knowledge graph
+
+Run `json_to_gexf_v2.py` to convert the extracted triples in
+`graph_v2.json` into a GEXF file with sentence information:
+
+```
+python3 json_to_gexf_v2.py
+```
+
+This creates `graph_v6.gexf`, which can be visualized in Gephi and
+is used by the retrieval scripts below.
+
 ## graph_based_rag.py
 
 `graph_based_rag.py` provides a simple example of retrieval augmented generation over the `graph_v6.gexf` knowledge graph. Each edge now stores the sentence from which the relation was extracted. The script loads the graph, retrieves the nodes that are most relevant to a question, and optionally uses the OpenAI API to generate an answer from the associated triples. If the `qdrant-client` package is installed, an in-memory Qdrant database accelerates similarity search.
