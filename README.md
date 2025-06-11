@@ -18,3 +18,22 @@ python3 prompt.py
 ```
 
 You can also import `PROMPT` from `prompt.py` in your own code.
+
+## graph_based_rag.py
+
+`graph_based_rag.py` provides a simple example of retrieval augmented generation over the `graph_v6.gexf` knowledge graph. Each edge now stores the sentence from which the relation was extracted. The script loads the graph, retrieves the nodes that are most relevant to a question, and optionally uses the OpenAI API to generate an answer from the associated triples. If the `qdrant-client` package is installed, an in-memory Qdrant database accelerates similarity search.
+
+### Example
+
+```
+python3 graph_based_rag.py "Who does Storey Publishing serve?"
+```
+
+The output shows the retrieved triples along with the sentence where each relation was mentioned.
+
+Set the `OPENAI_API_KEY` environment variable if you want to generate answers with the OpenAI API. Without the key, the script will just show the retrieved context.
+Install `qdrant-client` to enable faster vector search:
+
+```
+pip install qdrant-client
+```
