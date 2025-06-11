@@ -15,7 +15,7 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 INPUT_FILES = ["contexts.txt"]
-OUTPUT_FILE = "graph.json"
+OUTPUT_FILE = "graph_v2.json"
 MODEL_NAME = "gpt-4o-mini"
 MAX_TOKENS = 1200
 OVERLAP = 100
