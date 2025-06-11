@@ -1,138 +1,132 @@
 import os
-from typing import Dict, List, Tuple, Optional
-
 import networkx as nx
-
-try:
-    from sklearn.metrics.pairwise import cosine_similarity
-except ImportError:  # pragma: no cover - optional
-    cosine_similarity = None  # type: ignore
-
-try:
-    from qdrant_client import QdrantClient
-    from qdrant_client.http import models as qmodels
-except ImportError:  # pragma: no cover - optional
-    QdrantClient = None  # type: ignore
-    qmodels = None  # type: ignore
-
-try:
-    import openai
-except ImportError:  # pragma: no cover - optional
-    openai = None  # type: ignore
-
+import numpy as np
+import faiss
+from typing import List, Tuple, Dict
+from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
+from openai import OpenAI
 
 Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
+# === Configuration ===
+GEXF_PATH       = "graph_v6.gexf"
+EMBEDDING_MODEL = "text-embedding-3-small"
+INDEX_PATH      = "edge_index.faiss"
+PAYLOAD_PATH    = "edge_payloads.npy"
+MAX_WORKERS     = 10
 
-class EdgeEmbedder:
-    """Embed edge sentences and provide similarity search."""
+# OpenAI API 키 확인
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("환경 변수 OPENAI_API_KEY를 설정해야 합니다.")
+
+class EdgeEmbedderFAISS:
+    """Embed edge sentences into a local FAISS index with payloads in parallel."""
 
     def __init__(
         self,
         gexf_path: str,
-        embedding_model: str = "text-embedding-3-small",
-        use_qdrant: bool = True,
+        embedding_model: str,
+        openai_api_key: str,
+        index_path: str,
+        payload_path: str,
     ) -> None:
+        # Load graph and init
         self.graph = nx.read_gexf(gexf_path)
         self.embedding_model = embedding_model
+        self.openai = OpenAI(api_key=openai_api_key)
+        self.index_path = index_path
+        self.payload_path = payload_path
+
+        # Prepare edges
         self.edges: List[Edge] = []
-        self.embeddings: Dict[str, List[float]] = {}
-        self.openai_client = None
-        self.use_qdrant = use_qdrant and QdrantClient is not None
-        self.qdrant_client = None
-        self.collection_name = "edge_sentences"
-
-        if openai and os.getenv("OPENAI_API_KEY"):
-            openai.api_key = os.environ["OPENAI_API_KEY"]
-            self.openai_client = openai.OpenAI()
-        else:
-            print(
-                "OPENAI_API_KEY not found or openai package missing. Falling back to simple embeddings."
-            )
-
         for src, dst, data in self.graph.edges(data=True):
-            sentence = data.get("sentence")
-            label = data.get("label") or data.get("relation_type", "")
-            if not sentence:
-                continue
-            eid = f"{src}-{dst}-{label}"
-            self.edges.append((eid, src, dst, label, sentence))
+            sent = data.get("sentence")
+            lbl  = data.get("label") or data.get("relation_type", "")
+            if sent:
+                eid = f"{src}-{dst}-{lbl}".replace(" ", "_")
+                self.edges.append((eid, src, dst, lbl, sent))
 
-    def _embed_text(self, text: str) -> List[float]:
-        if self.openai_client:
-            response = self.openai_client.embeddings.create(
-                input=[text], model=self.embedding_model
-            )
-            return response.data[0].embedding
-        # simple fallback embedding using word hashes
-        words = text.lower().split()
-        return [hash(w) % 1000 / 1000 for w in words]
+        # placeholders for FAISS
+        self.index: faiss.IndexFlatIP
+        self.payloads: List[Dict] = []
 
-    def embed_edges(self) -> None:
-        for eid, _, _, _, sentence in self.edges:
-            if eid not in self.embeddings:
-                self.embeddings[eid] = self._embed_text(sentence)
+    def _embed(self, text: str) -> np.ndarray:
+        resp = self.openai.embeddings.create(
+            input=[text], model=self.embedding_model
+        )
+        emb = np.array(resp.data[0].embedding, dtype="float32")
+        return emb / np.linalg.norm(emb)
 
-        if self.use_qdrant:
-            if not self.embeddings:
-                return
-            if self.qdrant_client is None:
-                first_emb = next(iter(self.embeddings.values()))
-                self.qdrant_client = QdrantClient(":memory:")
-                self.qdrant_client.recreate_collection(
-                    collection_name=self.collection_name,
-                    vectors_config=qmodels.VectorParams(
-                        size=len(first_emb), distance=qmodels.Distance.COSINE
-                    ),
-                )
+    def build_index(self) -> None:
+        # Determine embedding dimension
+        dim = self._embed("test").shape[0]
+        self.index = faiss.IndexFlatIP(dim)
 
-            points = [
-                qmodels.PointStruct(id=i, vector=emb, payload={"edge_id": eid})
-                for i, (eid, emb) in enumerate(self.embeddings.items())
-            ]
-            self.qdrant_client.upsert(
-                collection_name=self.collection_name, points=points
-            )
+        # Worker to generate embedding and payload
+        def worker(edge: Edge):
+            eid, src, dst, lbl, sent = edge
+            emb = self._embed(sent)
+            payload = {
+                "edge_id": eid,
+                "source": src,
+                "target": dst,
+                "label": lbl,
+                "sentence": sent
+            }
+            return emb, payload
 
-    def search(
-        self, query: str, top_k: int = 5, allowed_ids: Optional[List[str]] = None
-    ) -> List[Edge]:
-        if not self.embeddings:
-            self.embed_edges()
-        query_emb = self._embed_text(query)
+        # Parallel embedding with progress bar
+        results = []
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            for emb, payload in tqdm(
+                executor.map(worker, self.edges),
+                total=len(self.edges),
+                desc="Embedding edges"
+            ):
+                results.append((emb, payload))
 
-        if allowed_ids is not None:
-            edges = [e for e in self.edges if e[0] in allowed_ids]
-        else:
-            edges = self.edges
+        vecs = np.vstack([r[0] for r in results])
+        self.payloads = [r[1] for r in results]
+        self.index.add(vecs)
 
-        scores: List[Tuple[float, Edge]] = []
-        for eid, src, dst, label, sentence in edges:
-            emb = self.embeddings[eid]
-            if self.openai_client and cosine_similarity is not None:
-                score = cosine_similarity([query_emb], [emb])[0][0]
-            else:
-                q_set = set(query.lower().split())
-                s_set = set(sentence.lower().split())
-                inter = q_set & s_set
-                union = q_set | s_set
-                score = len(inter) / len(union) if union else 0.0
-            scores.append((score, (eid, src, dst, label, sentence)))
-        scores.sort(key=lambda x: x[0], reverse=True)
-        return [edge for _, edge in scores[:top_k]]
+        # Persist index and payloads
+        faiss.write_index(self.index, self.index_path)
+        np.save(self.payload_path, np.array(self.payloads, dtype=object))
 
+    def load_index(self) -> None:
+        self.index = faiss.read_index(self.index_path)
+        self.payloads = np.load(self.payload_path, allow_pickle=True).tolist()
 
-if __name__ == "__main__":
-    import argparse
+    def search(self, query: str, top_k: int = 5) -> List[Edge]:
+        q_emb = self._embed(query).reshape(1, -1)
+        _, indices = self.index.search(q_emb, top_k)
+        results = []
+        for idx in indices[0]:
+            p = self.payloads[idx]
+            results.append((p["edge_id"], p["source"], p["target"], p["label"], p["sentence"]))
+        return results
 
-    parser = argparse.ArgumentParser(description="Embed edge sentences")
-    parser.add_argument("gexf", help="path to graph file")
-    parser.add_argument("--top-k", type=int, default=5, help="demo search results")
-    parser.add_argument("--query", default="example", help="query for demo search")
-    args = parser.parse_args()
+# Usage example (no main guard):
+# instantiate and build or load the index directly
+embedder = EdgeEmbedderFAISS(
+    gexf_path=GEXF_PATH,
+    embedding_model=EMBEDDING_MODEL,
+    openai_api_key=OPENAI_API_KEY,
+    index_path=INDEX_PATH,
+    payload_path=PAYLOAD_PATH,
+)
 
-    embedder = EdgeEmbedder(args.gexf)
-    embedder.embed_edges()
-    results = embedder.search(args.query, top_k=args.top_k)
-    for eid, src, dst, label, sentence in results:
-        print(f"{src} --{label}--> {dst} | {sentence}")
+# Build index if not exists, otherwise load
+if not os.path.exists(INDEX_PATH):
+    embedder.build_index()
+    print("FAISS index & payloads 생성 완료.")
+else:
+    embedder.load_index()
+    print("FAISS index & payloads 로드 완료.")
+
+# 검색 예시
+results = embedder.search("Bee is good")
+for edge in results:
+    print(edge)

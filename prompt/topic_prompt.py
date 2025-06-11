@@ -8,6 +8,10 @@ For each topic, list ten concrete subtopics. Respond in JSON format:
     ... (total five items)
   ]
 }
+---Instructions---
+1. Each topic should be a single word or a short phrase.
+2. Each Subtopic should be related to the topic and be a single word or a short phrase.
+3. Ensure the response is valid JSON.
 Question: {{question}}
 """
 
