@@ -33,14 +33,14 @@ for entry in entries:
     G.add_node(obj_mt, label=obj_mt, type='topic')
     
     # Add edges: entity -> subtopic -> topic, and the predicate edge
-    G.add_edge(subj, subj_st, label='has_subtopic')
-    G.add_edge(subj_st, subj_mt, label='has_topic')
-    G.add_edge(obj, obj_st, label='has_subtopic')
-    G.add_edge(obj_st, obj_mt, label='has_topic')
-    G.add_edge(subj, obj, label=pred)
+    G.add_edge(subj, subj_st, label='has_subtopic', relation_type='subtopic_relation')
+    G.add_edge(subj_st, subj_mt, label='has_topic', relation_type='topic_relation')
+    G.add_edge(obj, obj_st, label='has_subtopic', relation_type='subtopic_relation')
+    G.add_edge(obj_st, obj_mt, label='has_topic', relation_type='topic_relation')
+    G.add_edge(subj, obj, label=pred, relation_type='predicate_relation')
 
 # Save as GEXF for Gephi
-nx.write_gexf(G, 'graph_lightrag.gexf')
+nx.write_gexf(G, 'graph_v2.gexf')
 
 # # Also save CSVs for optional import
 # nodes = [{'id': n, 'label': attr.get('label', ''), 'type': attr.get('type', '')} for n, attr in G.nodes(data=True)]
@@ -50,6 +50,6 @@ nx.write_gexf(G, 'graph_lightrag.gexf')
 # pd.DataFrame(edges).to_csv('/mnt/data/edges_extended.csv', index=False)
 
 print("Files saved:")
-print(" - graph_lightrag.gexf")
+print(" - graph_v2.gexf")
 # print(" - nodes_extended.csv")
 # print(" - edges_extended.csv")

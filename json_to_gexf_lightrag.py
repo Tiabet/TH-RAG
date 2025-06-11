@@ -13,7 +13,7 @@ entries = [
 ]
 
 # Create a directed graph
-G = nx.DiGraph()
+G = nx.Graph()
 
 for entry in entries:
     subj, pred, obj = entry['triple']
@@ -45,6 +45,6 @@ for entry in entries:
     G.add_edge(f"entity_{subj}", f"entity_{obj}", label=pred)
 
 # Save the graph in GEXF format for Gephi
-nx.write_gexf(G, 'graph_lightrag.gexf')
+nx.write_gexf(G, 'graph_lightrag_v2.gexf')
 
 print("GEXF file saved to graph_lightrag.gexf")

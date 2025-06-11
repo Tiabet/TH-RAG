@@ -9,7 +9,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # from prompt.extract_graph import EXTRACTION_PROMPT
-from prompt.normal_extract_graph import EXTRACTION_PROMPT
+from prompt.extract_graph import EXTRACTION_PROMPT
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
