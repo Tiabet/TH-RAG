@@ -194,3 +194,15 @@ cython_debug/
 .cursorindexingignore
 .faiss
 edge_index.faiss
+DB/edge_payloads.npy
+DB/graph_lightrag_v2.gexf
+DB/graph_lightrag.gexf
+DB/graph_lightrag.json
+DB/graph_v2.gexf
+DB/graph_v2.json
+DB/graph_v3.gexf
+DB/graph_v4.gexf
+DB/graph_v5.gexf
+DB/graph_v6.gexf
+DB/graph.gexf
+DB/graph.json
