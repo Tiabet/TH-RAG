@@ -2,7 +2,7 @@ import json
 import networkx as nx
 
 # Load the JSON data
-with open('graph_lightrag.json', 'r') as f:
+with open('DB/graph_lightrag.json', 'r') as f:
     data = json.load(f)
 
 # Flatten and filter entries with valid triples

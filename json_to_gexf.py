@@ -3,7 +3,7 @@ import networkx as nx
 import pandas as pd
 
 # Load JSON data
-with open('graph.json', 'r') as f:
+with open('DB/graph.json', 'r') as f:
     data = json.load(f)
 
 # Flatten and filter entries (triples of length 3)

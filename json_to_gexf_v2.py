@@ -2,7 +2,7 @@ import json
 import networkx as nx
 
 # Load JSON data
-with open('graph_v2.json', 'r', encoding='utf-8') as f:
+with open('DB/graph_v2.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 # Flatten and filter entries (triples of length 3)

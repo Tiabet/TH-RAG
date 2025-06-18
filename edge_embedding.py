@@ -12,8 +12,8 @@ Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 # === Configuration ===
 GEXF_PATH       = "graph_v6.gexf"
 EMBEDDING_MODEL = "text-embedding-3-small"
-INDEX_PATH      = "edge_index.faiss"
-PAYLOAD_PATH    = "edge_payloads.npy"
+INDEX_PATH      = "DB/edge_index.faiss"
+PAYLOAD_PATH    = "DB/edge_payloads.npy"
 MAX_WORKERS     = 10
 
 # OpenAI API 키 확인
