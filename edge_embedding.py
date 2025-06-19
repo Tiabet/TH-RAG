@@ -10,7 +10,7 @@ from openai import OpenAI
 Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
 # === Configuration ===
-GEXF_PATH       = "graph_v6.gexf"
+GEXF_PATH       = "DB/graph_v7.gexf"
 EMBEDDING_MODEL = "text-embedding-3-small"
 INDEX_PATH      = "DB/edge_index.faiss"
 PAYLOAD_PATH    = "DB/edge_payloads.npy"

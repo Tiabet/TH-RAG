@@ -16,7 +16,7 @@ load_dotenv()
 # 설정
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
-GRAPH_PATH = os.getenv("GRAPH_PATH", "DB/graph_v6.gexf")
+GRAPH_PATH = os.getenv("GRAPH_PATH", "DB/graph_v7.gexf")
 INDEX_PATH = os.getenv("INDEX_PATH", "DB/edge_index.faiss")
 PAYLOAD_PATH = os.getenv("PAYLOAD_PATH", "DB/edge_payloads.npy")
 
