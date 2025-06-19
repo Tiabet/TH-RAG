@@ -15,7 +15,7 @@ entries = [
     and len(item['triple']) == 3
 ]
 
-# Create directed graph
+# Create undirected graph (or DiGraph if direction matters)
 G = nx.Graph()
 
 for entry in entries:
@@ -24,8 +24,9 @@ for entry in entries:
     subj_mt = entry['subject']['main_topic']
     obj_st = entry['object']['subtopic']
     obj_mt = entry['object']['main_topic']
+    sentence = entry.get('sentence', '')
 
-    # Define node IDs with prefixes to avoid naming conflicts
+    # Define node IDs with prefixes
     subj_node = f"entity_{subj}"
     subj_st_node = f"subtopic_{subj_st}"
     subj_mt_node = f"topic_{subj_mt}"
@@ -34,24 +35,33 @@ for entry in entries:
     obj_mt_node = f"topic_{obj_mt}"
 
     # Add nodes with attributes
-    G.add_node(subj_node, label=subj, type='entity')
-    G.add_node(subj_st_node, label=subj_st, type='subtopic')
-    G.add_node(subj_mt_node, label=subj_mt, type='topic')
-    G.add_node(obj_node, label=obj, type='entity')
-    G.add_node(obj_st_node, label=obj_st, type='subtopic')
-    G.add_node(obj_mt_node, label=obj_mt, type='topic')
+    for node, label, typ in [
+        (subj_node, subj, 'entity'), (subj_st_node, subj_st, 'subtopic'), (subj_mt_node, subj_mt, 'topic'),
+        (obj_node, obj, 'entity'), (obj_st_node, obj_st, 'subtopic'), (obj_mt_node, obj_mt, 'topic')
+    ]:
+        G.add_node(node, label=label, type=typ)
 
-    # Add hierarchical edges
+    # Hierarchical edges
     G.add_edge(subj_node, subj_st_node, label='has_subtopic', relation_type='subtopic_relation')
     G.add_edge(subj_st_node, subj_mt_node, label='has_topic', relation_type='topic_relation')
     G.add_edge(obj_node, obj_st_node, label='has_subtopic', relation_type='subtopic_relation')
     G.add_edge(obj_st_node, obj_mt_node, label='has_topic', relation_type='topic_relation')
 
-    # Add predicate edge between entities
-    G.add_edge(subj_node, obj_node, label=pred, relation_type='predicate_relation',sentence=entry.get('sentence', ''))
+    # Predicate edge with merging
+    if G.has_edge(subj_node, obj_node):
+        existing = G[subj_node][obj_node]
+        existing['label'] = f"{existing['label']} / {pred}" if pred not in existing['label'] else existing['label']
+        existing['sentence'] = f"{existing['sentence']} / {sentence}" if sentence and sentence not in existing['sentence'] else existing['sentence']
+        existing['weight'] = existing.get('weight', 1) + 1
+    else:
+        G.add_edge(subj_node, obj_node,
+                   label=pred,
+                   relation_type='predicate_relation',
+                   sentence=sentence,
+                   weight=1)
 
 # Save as GEXF for Gephi
-nx.write_gexf(G, 'graph_v6.gexf')
+nx.write_gexf(G, 'DB/graph_v7.gexf')
 
-print("Files saved:")
-print(" - graph_v5.gexf")
+print("File saved:")
+print(" - DB/graph_v7.gexf")
