@@ -1,7 +1,7 @@
 TOPIC_PROMPT = """
 You are an assistant that generates concise topic suggestions.
 ---Goal---
-Given the user's question, produce exactly broad topic relevant to the question.
+Given the user's question, produce exactly 5 broad topic relevant to the question.
 For each topic, list ten concrete subtopics.
 
 ---Instructions---
@@ -16,7 +16,11 @@ Respond ONLY with a valid JSON array using the following format:
 
 {
   "topics": [
-    {"topic": "Topic name", "subtopics": ["Sub1", "Sub2", ...]}
+    {"topic": "Topic name", "subtopics": ["Sub1", "Sub2", ...]}, 
+    {"topic": "Topic name", "subtopics": ["Sub1", "Sub2", ...]}, 
+    {"topic": "Topic name", "subtopics": ["Sub1", "Sub2", ...]}, 
+    {"topic": "Topic name", "subtopics": ["Sub1", "Sub2", ...]}, 
+    {"topic": "Topic name", "subtopics": ["Sub1", "Sub2", ...]}, 
   ]
 }
 

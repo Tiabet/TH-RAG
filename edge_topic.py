@@ -36,7 +36,7 @@ def extract_topics_subtopics(
         raise ValueError(f"모델 응답에서 JSON 파싱 실패: {e}\n---\n{content}")
 
     topics = data.get("topics")
-    if not isinstance(topics, list) or len(topics) != 1:
+    if not isinstance(topics, list) or len(topics) != 5:
         raise ValueError(f"예상과 다른 토픽 개수: {topics}")
     for t in topics:
         if "topic" not in t or "subtopics" not in t or len(t["subtopics"]) != 10:
@@ -45,7 +45,7 @@ def extract_topics_subtopics(
     return topics
 
 # 실행 코드 (메인 가드 없이)
-client = OpenAI(api_key=OPENAI_API_KEY)
-query = "What are the steps involved in extracting and handling honey, and why is it important to strain the honey after extraction?"
-topics = extract_topics_subtopics(query, client)
-print(json.dumps(topics, ensure_ascii=False, indent=2))
+# client = OpenAI(api_key=OPENAI_API_KEY)
+# query = "What are the steps involved in extracting and handling honey, and why is it important to strain the honey after extraction?"
+# topics = extract_topics_subtopics(query, client)
+# print(json.dumps(topics, ensure_ascii=False, indent=2))

@@ -5,7 +5,8 @@ import openai
 from dotenv import load_dotenv
 
 # from Retriever import Retriever  # Retriever.py에 정의된 클래스
-from retriever_test import Retriever  # retriever_test.py에 정의된 클래스
+from Retriever_v1 import Retriever  # retriever_test.py에 정의된 클래스
+# from edge_topic import extract_topics_subtopics  # edge_to_topic.py에 정의된 함수
 
 # 환경 변수 로드
 load_dotenv()
@@ -53,8 +54,9 @@ class GraphRAG:
         return "\n".join(parts)
 
     def answer(self, query: str) -> str:
+        # topic_infos = extract_topics_subtopics(query, self.client)
         # Retriever로부터 entity_sentences와 faiss_results 얻기
-        outputs = self.retriever.retrieve(query, top_n=50)  # query 인자 추가
+        outputs = self.retriever.retrieve(topic_infos, query, top_n=50)  # query 인자 추가
         entity_sentences = outputs.get("entity_sentences", {})
         faiss_results = outputs.get("faiss_results", [])
 
@@ -75,7 +77,7 @@ class GraphRAG:
 
 if __name__ == "__main__":
     rag = GraphRAG()
-    question = "What are the steps involved in extracting and handling honey, and why is it important to strain the honey after extraction?"
+    question = "What recurring tasks are essential for successful hive management throughout the bee season?"
     answer = rag.answer(question)
     print("\n=== Answer ===")
     print(answer)

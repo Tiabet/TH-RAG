@@ -1,10 +1,16 @@
 import os
 import networkx as nx
-import openai
 from typing import List, Dict, Set
-from edge_topic import extract_topics_subtopics
-from edge_embedding import EdgeEmbedderFAISS
 
+# your_module 경로에 맞춰 아래 두 줄 경로 수정
+from edge_embedding import EdgeEmbedderFAISS
+from edge_topic import extract_topics_subtopics
+
+# === 사전정의된 토픽 및 서브토픽 ===
+# PREDEFINED_TOPICS_INFO = [
+#     {"topic": "Beekeeping", "subtopics": ["Extraction", "Straining", "Processing", "Harvesting", "Filtering", "Storage", "Quality", "Nutritional", "Pests", "Equipment"]},
+# ]
+# === Retriever 클래스 정의 ===
 class Retriever:
     def __init__(self,
                  gexf_path: str,
@@ -30,16 +36,18 @@ class Retriever:
             self.embedder.build_index()
             print("FAISS index & payloads built.")
 
-        self.client = openai.OpenAI(api_key=openai_api_key) 
-
         print(f"Total graph nodes: {len(self.graph.nodes)}")
 
     def _subtopic_is_linked_to_topic(self, sub_nid: str, topic_terms: Set[str]) -> bool:
-        for nbr in self.graph.neighbors(sub_nid):
-            lbl = self.graph.nodes[nbr].get("label", "")
-            if any(topic in nbr or topic in lbl for topic in topic_terms):
+        sub_label = self.graph.nodes[sub_nid].get("label", "").lower()
+        sub_words = set(sub_label.split())
+
+        for topic_label in topic_terms:
+            topic_words = set(topic_label.lower().split())
+            if sub_words & topic_words:  # 교집합이 존재하면 관련 있음
                 return True
         return False
+
 
     def _entities_of_subtopic(self, sub_nid: str) -> Set[str]:
         ents = set()
@@ -50,9 +58,9 @@ class Retriever:
 
     def retrieve(self, query, top_n: int = 50) -> Dict[str, List[str]]:
         print("--- Retrieval Start ---")
-
         # 1. 토픽/서브토픽
-        topics_info = extract_topics_subtopics(query, self.client)
+        # topics_info = PREDEFINED_TOPICS_INFO
+        topics_info = extract_topics_subtopics(query, self.embedder.client)
         print(f"Topics & Subtopics: {topics_info}")
         topic_terms = {t["topic"] for t in topics_info}
         subtopic_terms = {sub for t in topics_info for sub in t["subtopics"]}
@@ -105,7 +113,7 @@ class Retriever:
                 entity_sentences[ent] = sents
                 # print(f"Entity '{ent}' has {len(sents)} sentence(s)")
         if entity_sentences:
-            print(f"{len(entity_sentences)}Entity-edge sentences collected.")
+            print(f"{len(entity_sentences)} Entity-edge sentences collected.")
         else:
             print("Warning: No sentences found on entity edges.")
 
@@ -123,3 +131,32 @@ class Retriever:
             "entity_sentences": entity_sentences,
             "faiss_results": results
         }
+
+# === 설정 부분만 수정하세요 ===
+# GEXF_PATH       = "DB/graph_v7.gexf"
+# INDEX_PATH      = "DB/edge_index_v2.faiss"
+# PAYLOAD_PATH    = "DB/edge_payloads_v2.npy"
+# EMBEDDING_MODEL = "text-embedding-3-small"
+
+# # 환경변수 확인
+# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# if not OPENAI_API_KEY:
+#     print("Error: 환경 변수 OPENAI_API_KEY를 설정해야 합니다.")
+#     exit(1)
+
+# Retriever 인스턴스화 및 실행
+# retriever = Retriever(
+#     gexf_path=GEXF_PATH,
+#     embedding_model=EMBEDDING_MODEL,
+#     openai_api_key=OPENAI_API_KEY,
+#     index_path=INDEX_PATH,
+#     payload_path=PAYLOAD_PATH,
+# )
+
+# retrieve 메서드 호출
+# results = retriever.retrieve(top_n=10)
+
+# # 결과 출력
+# print("\n=== 상위 10개 검색 결과 ===")
+# for hit in results["faiss_results"]:
+#     print(f"[{hit['rank']}] ({hit['score']:.4f}) {hit['source']}→{hit['target']} “{hit['sentence']}”")
