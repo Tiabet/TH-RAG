@@ -19,7 +19,6 @@ def extract_topics_subtopics(
     Returns:
       [
         {"topic": "Topic1", "subtopics": ["Sub1", ..., "Sub10"]},
-        ... (총 5개)
       ]
     """
     prompt = TOPIC_PROMPT.replace("{question}", query)
@@ -37,7 +36,7 @@ def extract_topics_subtopics(
         raise ValueError(f"모델 응답에서 JSON 파싱 실패: {e}\n---\n{content}")
 
     topics = data.get("topics")
-    if not isinstance(topics, list) or len(topics) != 5:
+    if not isinstance(topics, list) or len(topics) != 1:
         raise ValueError(f"예상과 다른 토픽 개수: {topics}")
     for t in topics:
         if "topic" not in t or "subtopics" not in t or len(t["subtopics"]) != 10:
