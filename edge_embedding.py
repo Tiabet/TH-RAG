@@ -3,7 +3,7 @@ import json
 import networkx as nx
 import numpy as np
 import faiss
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Set
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from openai import OpenAI
@@ -103,14 +103,46 @@ class EdgeEmbedderFAISS:
         self.index = faiss.read_index(self.index_path)
         self.payloads = np.load(self.payload_path, allow_pickle=True).tolist()
 
-    def search(self, query: str, top_k: int = 5) -> List[Edge]:
+    def search(self, query: str, top_k: int = 5, filter_entities: Set[str] = None) -> List[Dict]:
         q_emb = self._embed(query).reshape(1, -1)
-        _, indices = self.index.search(q_emb, top_k)
-        results = []
-        for idx in indices[0]:
-            p = self.payloads[idx]
-            results.append((p["edge_id"], p["source"], p["target"], p["label"], p["sentence"]))
-        return results
+        if filter_entities:
+            # payloads 필터링
+            filtered = [(i, p) for i, p in enumerate(self.payloads)
+                        if p["source"] in filter_entities or p["target"] in filter_entities]
+            idxs, payloads = zip(*filtered) if filtered else ([], [])
+            embs = np.vstack([self.index.reconstruct(int(i)) for i in idxs])
+            sims = (embs @ q_emb.T).flatten()
+            order = np.argsort(-sims)[:min(len(sims), top_k)]
+            results = []
+            for rank, idx in enumerate(order, start=1):
+                p = payloads[idx]
+                results.append({
+                    "edge_id": p["edge_id"],
+                    "source": p["source"],
+                    "target": p["target"],
+                    "label": p.get("label"),
+                    "sentence": p.get("sentence"),
+                    "score": float(sims[idx]),
+                    "rank": rank
+                })
+            return results
+        else:
+            # 기존 로직 유지
+            D, I = self.index.search(q_emb, top_k)
+            results = []
+            for rank, idx in enumerate(I[0], start=1):
+                p = self.payloads[idx]
+                results.append({
+                    "edge_id": p["edge_id"],
+                    "source": p["source"],
+                    "target": p["target"],
+                    "label": p.get("label"),
+                    "sentence": p.get("sentence"),
+                    "score": float(D[0][rank-1]),
+                    "rank": rank
+                })
+            return results
+
 
 embedder = EdgeEmbedderFAISS(
     gexf_path=GEXF_PATH,
@@ -127,7 +159,7 @@ else:
     embedder.load_index()
     print("FAISS index & payloads 로드 완료.")
 
-# 예시 검색
-results = embedder.search("Bee is good")
-for edge in results:
-    print(edge)
+# # 예시 검색
+# results = embedder.search("Bee is good")
+# for edge in results:
+#     print(edge)
