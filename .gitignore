@@ -210,3 +210,8 @@ DB/graph.json
 .gexf
 .json
 DB/graph_v7.gexf
+DB/v7_edges.csv
+DB/v7_nodes.csv
+
+.csv
+.tsv
