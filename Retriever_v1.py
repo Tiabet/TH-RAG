@@ -17,9 +17,11 @@ class Retriever:
                  embedding_model: str,
                  openai_api_key: str,
                  index_path: str,
-                 payload_path: str):
+                 payload_path: str,
+                 client=None):
         print(f"Loading graph from {gexf_path}")
         self.graph = nx.read_gexf(gexf_path)
+        self.client = client
 
         print("Initializing EdgeEmbedderFAISS")
         self.embedder = EdgeEmbedderFAISS(
@@ -58,70 +60,81 @@ class Retriever:
 
     def retrieve(self, query, top_n: int = 50) -> Dict[str, List[str]]:
         print("--- Retrieval Start ---")
-        # 1. 토픽/서브토픽
-        # topics_info = PREDEFINED_TOPICS_INFO
-        topics_info = extract_topics_subtopics(query, self.embedder.client)
-        print(f"Topics & Subtopics: {topics_info}")
-        topic_terms = {t["topic"] for t in topics_info}
-        subtopic_terms = {sub for t in topics_info for sub in t["subtopics"]}
+        MAX_RETRIES = 10  # 무한 루프 방지
+        attempt = 0
+        total_sent_count = 0
+        entity_sentences = {}  # 누적 저장
+        seen_entities = set()
+        seen_sub_nodes = set()
 
-        # 2. subtopic 노드 매핑
-        sub_nodes = set()
-        for sub in subtopic_terms:
-            matched = [nid for nid, data in self.graph.nodes(data=True)
-                       if sub in nid or sub in data.get("label", "")]
-            if matched:
-                # print(f"Matched subtopic '{sub}' -> {matched}")
-                sub_nodes.update(matched)
+        while total_sent_count < 200 and attempt < MAX_RETRIES:
+            print(f"\n[Attempt {attempt+1}]")
+            # 1. 토픽/서브토픽
+            topics_info = extract_topics_subtopics(query, self.client)
+            print(f"Topics & Subtopics: {topics_info}")
+            topic_terms = {t["topic"] for t in topics_info}
+            subtopic_terms = {sub for t in topics_info for sub in t["subtopics"]}
+
+            # 2. subtopic 노드 매핑
+            sub_nodes = set()
+            for sub in subtopic_terms:
+                matched = [nid for nid, data in self.graph.nodes(data=True)
+                           if sub in nid or sub in data.get("label", "")]
+                if matched:
+                    sub_nodes.update(matched)
+                else:
+                    print(f"Warning: No match for subtopic '{sub}'")
+            print(f"Total subtopic nodes: {len(sub_nodes)}")
+
+            new_sub_nodes = sub_nodes - seen_sub_nodes
+            seen_sub_nodes.update(new_sub_nodes)
+
+            # 3. 연결 검증
+            valid_subs = [nid for nid in new_sub_nodes if self._subtopic_is_linked_to_topic(nid, topic_terms)]
+            print(f"New valid subtopic nodes: {valid_subs}")
+
+
+            # 4. 엔티티 추출
+            new_entities = set()
+            for sub in valid_subs:
+                ents = self._entities_of_subtopic(sub)
+                new_entities.update(ents)
+            new_entities -= seen_entities  # 중복 제거
+            seen_entities.update(new_entities)
+
+            if not new_entities:
+                print("No new entities found. Retrying...\n")
+                attempt += 1
+                continue
             else:
-                print(f"Warning: No match for subtopic '{sub}'")
-        print(f"Total subtopic nodes: {len(sub_nodes)}")
+                print(f"New entities: {new_entities}")
 
-        # 3. 연결 검증
-        valid_subs, invalid_subs = [], []
-        for nid in sub_nodes:
-            if self._subtopic_is_linked_to_topic(nid, topic_terms):
-                valid_subs.append(nid)
+            # 5. 엔티티 간선 문장 추출
+            for ent in new_entities:
+                sents = []
+                for u, v, data in self.graph.edges(ent, data=True):
+                    sentence_block = data.get("sentence", "")
+                    if sentence_block:
+                        parts = [s.strip() for s in sentence_block.split('/') if s.strip()]
+                        sents.extend(parts)
+                if sents:
+                    entity_sentences[ent] = sents
+                    total_sent_count += len(sents)
+
+            print(f"Accumulated entity-edge sentences: {total_sent_count}")
+
+            if total_sent_count >= 200:
+                print("✅ Minimum sentence threshold reached.")
+                break
             else:
-                invalid_subs.append(nid)
-        if invalid_subs:
-            print(f"Ignored subtopics (no topic link): {invalid_subs}")
-        print(f"Valid subtopic nodes: {valid_subs}")
-
-        # 4. 엔티티 추출
-        entities = set()
-        for sub in valid_subs:
-            ents = self._entities_of_subtopic(sub)
-            # print(f"Entities for '{sub}': {ents}")
-            entities.update(ents)
-        if not entities:
-            print("Warning: No entities found; unfiltered search will be used.")
-            entities = None
-        else:
-            print(f"Collected entities: {entities}")
-
-        # 5. 엔티티 간선 문장 추출
-        entity_sentences = {}
-        for ent in entities or []:
-            sents = []
-            for u, v, data in self.graph.edges(ent, data=True):
-                sentence_block = data.get("sentence", "")
-                if sentence_block:
-                    parts = [s.strip() for s in sentence_block.split('/') if s.strip()]
-                    sents.extend(parts)
-            if sents:
-                entity_sentences[ent] = sents
-                # print(f"Entity '{ent}' has {len(sents)} sentence(s)")
-        if entity_sentences:
-            print(f"{len(entity_sentences)} Entity-edge sentences collected.")
-        else:
-            print("Warning: No sentences found on entity edges.")
-
+                print("🔁 Continuing to collect more...\n")
+                attempt += 1
+        print(len(entity_sentences), "entities with sentences collected.")
         # 6. FAISS 검색 (필터링)
         results = self.embedder.search(
             query=query,
             top_k=top_n,
-            filter_entities=entities,
+            filter_entities=seen_entities if seen_entities else None,
         )
         print(f"Retrieved {len(results)} edges from FAISS.")
         print("--- Retrieval End ---")
@@ -131,6 +144,7 @@ class Retriever:
             "entity_sentences": entity_sentences,
             "faiss_results": results
         }
+
 
 # === 설정 부분만 수정하세요 ===
 # GEXF_PATH       = "DB/graph_v7.gexf"
