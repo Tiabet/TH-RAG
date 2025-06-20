@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 # from Retriever import Retriever  # Retriever.py에 정의된 클래스
 from Retriever_v1 import Retriever  # retriever_test.py에 정의된 클래스
-from prompt.answer_generation import ANSWER_PROMPT
+from prompt.answer import ANSWER_PROMPT
 
 # 환경 변수 로드
 load_dotenv()
@@ -64,10 +64,10 @@ class GraphRAG:
 
         # 컨텍스트 구성
         context = self.compose_context(entity_sentences, faiss_results)
-        prompt =  ANSWER_PROMPT.format(
-            query=query,
-            context=context
-        )
+        prompt =  ANSWER_PROMPT.replace("{query}", query)
+        prompt = prompt.replace("{context}", context)
+        print(prompt)
+        print(len(context) , "characters in context.")
         resp = self.client.chat.completions.create(
             model=self.chat_model,
             messages=[

@@ -30,6 +30,7 @@ def extract_topics_subtopics(
         ],
     )
     content = response.choices[0].message.content
+    # print(content)
     try:
         data = json.loads(content)
     except json.JSONDecodeError as e:

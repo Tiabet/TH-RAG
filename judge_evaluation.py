@@ -11,7 +11,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY) 
 
 # Load the two answer files
-with open("result/agriculture_kgrag_result.json", encoding="utf-8") as f1, \
+with open("result/agriculture_kgrag_result_v2.json", encoding="utf-8") as f1, \
      open("result/agriculture_lightrag_result.json", encoding="utf-8") as f2:
     graph_results = json.load(f1)
     light_results = json.load(f2)
@@ -43,7 +43,7 @@ for g, l in tqdm(zip(graph_results, light_results), total=len(graph_results), de
         answer1_model, answer2_model = "LightRAG", "KG-RAG"
 
     prompt = EVALUATION_PROPMPT.format(query=query, answer1=answer1, answer2=answer2)
-
+    # print(prompt)
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
@@ -72,5 +72,5 @@ for g, l in tqdm(zip(graph_results, light_results), total=len(graph_results), de
         })
 
 # 저장
-with open("result/agriculture_judged_results.json", "w", encoding="utf-8") as f:
+with open("result/agriculture_judged_results_v3.json", "w", encoding="utf-8") as f:
     json.dump(judged_results, f, indent=2, ensure_ascii=False)
