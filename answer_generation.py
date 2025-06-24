@@ -4,8 +4,8 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 입력/출력 경로
-input_path = "result/agriculture_lightrag_result.json"
-output_path = "result/agriculture_kgrag_result_v2.json"
+input_path = "UltraDomain/result/agriculture_lightrag_result.json"
+output_path = "UltraDomain/result/agriculture_kgrag_result_v3.json"
 
 # GraphRAG 인스턴스
 rag = GraphRAG()

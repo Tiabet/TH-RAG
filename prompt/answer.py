@@ -11,6 +11,7 @@ You are given a user question and a set of retrieved sentences from a knowledge 
 - Reflect and integrate the information in the context thoroughly and meaningfully.
 - Be concise, but ensure your answer is as helpful and comprehensive as possible.
 - Organize your response logically, and highlight important concepts when appropriate (e.g., using bullet points, bold text, or headers).
+- Do not fabricate information or make assumptions beyond what is provided in the context. If you cannot answer the question based on the context, state that clearly.
 
 ---Context---
 {{context}}

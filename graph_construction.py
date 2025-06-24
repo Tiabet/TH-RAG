@@ -14,8 +14,8 @@ from prompt.extract_graph import EXTRACTION_PROMPT
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-INPUT_FILES = ["contexts.txt"]
-OUTPUT_FILE = "DB/graph_v2.json"
+INPUT_FILES = ["hotpotQA/hotpot_contexts_train.txt", "hotpotQA/hotpot_contexts_distractor.txt"]
+OUTPUT_FILE = "hotpotQA/graph_v1.json"
 MODEL_NAME = "gpt-4o-mini"
 MAX_TOKENS = 1200
 OVERLAP = 100
