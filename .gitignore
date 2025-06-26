@@ -199,12 +199,5 @@ cython_debug/
 *.csv
 *.tsv
 DB/
-hotpotQA/hotpot_contexts_distractor.txt
-hotpotQA/hotpot_contexts_fullwiki.txt
-hotpotQA/hotpot_contexts_train.txt
-hotpotQA/hotpot_qa_extract.py
-hotpotQA/hotpot_to_context.py
-UltraDoamin/edge_payloads_v2.npy
-UltraDoamin/edge_payloads.npy
-UltraDomain/edge_payloads_v2.npy
-UltraDomain/edge_payloads.npy
+hotpotQA/
+UltraDomain/

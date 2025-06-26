@@ -3,7 +3,7 @@ import json
 from collections import Counter
 
 # 평가 결과 불러오기
-with open("result/agriculture_judged_results.json", encoding="utf-8") as f:
+with open("UltraDomain/result/agriculture_judged_results_v2.json", encoding="utf-8") as f:
     data = json.load(f)
 
 categories = ["Comprehensiveness", "Diversity", "Empowerment", "Overall Winner"]
