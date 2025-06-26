@@ -5,8 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
 # 입력/출력 경로
-input_path = "UltraDomain/result/agriculture_lightrag_result.json"
-output_path = "UltraDomain/result/agriculture_kgrag_result_v3.json"
+input_path = "hotpotQA/hotpot_questions.json"
+output_path = "hotpotQA/result/hotpot_kgrag_results.json"
 temp_output_path = output_path.replace(".json", "_temp.json")
 
 # GraphRAG 인스턴스
@@ -22,14 +22,15 @@ output_data = [None] * len(questions)
 # 작업 함수
 def process(index_query):
     idx, item = index_query
-    query = item["query"]
+    query = item.get("query", "")
     try:
         answer = rag.answer(query)
         print(answer)
     except Exception as e:
         answer = f"[Error] {e}"
     
-    return idx, {"query": query, "result": answer}
+    result = {"query": query, "result": answer}
+    return idx, result
 
 # 병렬 처리
 completed = 0

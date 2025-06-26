@@ -8,13 +8,17 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from openai import OpenAI
 
+if "SSL_CERT_FILE" in os.environ:
+    print("⚠️ Removing problematic SSL_CERT_FILE:", os.environ["SSL_CERT_FILE"])
+    os.environ.pop("SSL_CERT_FILE")
+
 Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
 # === Configuration ===
-GEXF_PATH       = "UltraDomain/graph_v7.gexf"
+GEXF_PATH       = "hotpotQA/graph_v2.gexf"
 EMBEDDING_MODEL = "text-embedding-3-small"
-INDEX_PATH      = "UltraDomain/edge_index_v2.faiss"
-PAYLOAD_PATH    = "UltraDomain/edge_payloads_v2.npy"
+INDEX_PATH      = "hotpotQA/edge_index_v2.faiss"
+PAYLOAD_PATH    = "hotpotQA/edge_payloads_v2.npy"
 MAX_WORKERS     = 10
 
 # OpenAI API 키 확인
@@ -144,17 +148,17 @@ class EdgeEmbedderFAISS:
             return results
 
 
-# embedder = EdgeEmbedderFAISS(
-#     gexf_path=GEXF_PATH,
-#     embedding_model=EMBEDDING_MODEL,
-#     openai_api_key=OPENAI_API_KEY,
-#     index_path=INDEX_PATH,
-#     payload_path=PAYLOAD_PATH,
-# )
+embedder = EdgeEmbedderFAISS(
+    gexf_path=GEXF_PATH,
+    embedding_model=EMBEDDING_MODEL,
+    openai_api_key=OPENAI_API_KEY,
+    index_path=INDEX_PATH,
+    payload_path=PAYLOAD_PATH,
+)
 
-# if not os.path.exists(INDEX_PATH):
-#     embedder.build_index()
-#     print("FAISS index & payloads 생성 완료.")
+if not os.path.exists(INDEX_PATH):
+    embedder.build_index()
+    print("FAISS index & payloads 생성 완료.")
 # else:
 #     embedder.load_index()
 #     print("FAISS index & payloads 로드 완료.")

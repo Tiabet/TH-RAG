@@ -7,14 +7,15 @@ Extract factual (subject, relation, object) triples from the document and classi
 ---Instructions---
 1. Read the document below and extract all factual (subject, relation, object) triples. Each triple must be grounded in a specific sentence from the document.
 2. Paraphrasing is acceptable **only** if the relation is implied by the sentence.
-3. For each subject and object:
+3. Resolve pronouns such as "it", "he", "she", "they", etc. using surrounding context, and use the resolved entity names in the triples.
+4. For each subject and object:
    - Assign a **Subtopic** (a specific category)
    - Assign a **Main topic** (a broader domain)
    - Subtopic and main topic should be relevant to the subject and object, respectively.
    - Also, subtopic and main topic should be relevant to the document as a whole.
-4. Return only valid JSON in the specified format. Do not include markdown, comments, or any other text.
-5. Do not include any additional text or explanations outside the JSON format.
-6. Ensure that the JSON is well-formed and valid.
+5. Return only valid JSON in the specified format. Do not include markdown, comments, or any other text.
+6. Do not include any additional text or explanations outside the JSON format.
+7. Ensure that the JSON is well-formed and valid.
 
 ---Output Format---
 Respond ONLY with a valid JSON array using the following format:

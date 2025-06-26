@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 # from Retriever import Retriever  # Retriever.py에 정의된 클래스
 from Retriever_v1 import Retriever  # retriever_test.py에 정의된 클래스
 from prompt.answer import ANSWER_PROMPT
-from prompt.accuracy_evaluation import ACCURACY_EVALUATION_PROMPT
 
 # 환경 변수 로드
 load_dotenv()
@@ -18,9 +17,9 @@ if not OPENAI_API_KEY:
 # 모델 및 경로 설정
 EMBED_MODEL   = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL    = os.getenv("CHAT_MODEL", "gpt-4o-mini")
-GRAPH_PATH    = os.getenv("GRAPH_PATH", "UltraDomain/graph_v7.gexf")
-INDEX_PATH    = os.getenv("INDEX_PATH", "UltraDomain/edge_index_v2.faiss")
-PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "UltraDomain/edge_payloads_v2.npy")
+GRAPH_PATH    = os.getenv("GRAPH_PATH", "hotpotQA/graph_v1.gexf")
+INDEX_PATH    = os.getenv("INDEX_PATH", "hotpotQA/edge_index.faiss")
+PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "hotpotQA/edge_payloads.npy")
 
 class GraphRAG:
     def __init__(
@@ -56,7 +55,7 @@ class GraphRAG:
             parts.append(f"(Edge {hit['edge_id']} score={hit['score']:.3f}): {hit['sentence']}")
         return "\n".join(parts)
 
-    def answer(self, query: str, is_accuracy_task: bool = False, ground_truth: str = "") -> str:
+    def answer(self, query: str) -> str:
         # topic_infos = extract_topics_subtopics(query, self.client)
         # Retriever로부터 entity_sentences와 faiss_results 얻기
         outputs = self.retriever.retrieve(query, top_n=50)  # query 인자 추가
@@ -64,39 +63,18 @@ class GraphRAG:
         faiss_results = outputs.get("faiss_results", [])
 
         # 컨텍스트 구성
-        context = self.compose_context(entity_sentences, faiss_results)
+        context = self.compose_context(entity_sentences, faiss_results)     
+        prompt = ANSWER_PROMPT.replace("{question}", query).replace("{context}", context)
+        print(prompt)
+        print(len(context), "characters in context.")
 
-        if is_accuracy_task:
-            if not ground_truth:
-                raise ValueError("Ground truth must be provided for accuracy evaluation.")
-            prompt = ACCURACY_EVALUATION_PROMPT \
-                .replace("{answer}", ground_truth) \
-                .replace("{response}", context)
-            
-            print(prompt)
-            print(len(context), "characters in context.")
-
-            resp = self.client.chat.completions.create(
-                model=self.chat_model,
-                messages=[
-                    {"role": "system", "content": "You are a judge for the accuracy of AI responses."},
-                    {"role": "user", "content": prompt}
-                ]
-            )
-        else:
-            prompt = ANSWER_PROMPT \
-                .replace("{question}", query) \
-                .replace("{context}", context)
-            print(prompt)
-            print(len(context), "characters in context.")
-
-            resp = self.client.chat.completions.create(
-                model=self.chat_model,
-                messages=[
-                    {"role": "system", "content": "You are a graph-aware assistant, capable of understanding complex relationships."},
-                    {"role": "user", "content": prompt}
-                ]
-            )
+        resp = self.client.chat.completions.create(
+            model=self.chat_model,
+            messages=[
+                {"role": "system", "content": "You are a graph-aware assistant, capable of understanding complex relationships."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
         
         return resp.choices[0].message.content.strip()

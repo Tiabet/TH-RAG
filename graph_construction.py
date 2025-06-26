@@ -7,20 +7,25 @@ import openai
 import tiktoken
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
-# from prompt.extract_graph import EXTRACTION_PROMPT
 from prompt.extract_graph import EXTRACTION_PROMPT
+# from prompt.normal_extract_graph import EXTRACTION_PROMPT
 
+if "SSL_CERT_FILE" in os.environ:
+    print("⚠️ Removing problematic SSL_CERT_FILE:", os.environ["SSL_CERT_FILE"])
+    os.environ.pop("SSL_CERT_FILE")
+
+# ==== 설정 ====
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-INPUT_FILES = ["hotpotQA/hotpot_contexts_train.txt", "hotpotQA/hotpot_contexts_distractor.txt"]
-OUTPUT_FILE = "hotpotQA/graph_v1.json"
+INPUT_FILES = ["hotpotQA/fullwiki_context_sentences_deduplicated.txt"]
+OUTPUT_FILE = "hotpotQA/graph_v2.json"
 MODEL_NAME = "gpt-4o-mini"
 MAX_TOKENS = 1200
 OVERLAP = 100
-MAX_WORKERS = 10  # 동시에 실행할 스레드 개수
+MAX_WORKERS = 30
 
+# ==== 텍스트 청크 함수 ====
 def chunk_text(text: str, max_tokens: int, overlap: int, model: str) -> List[str]:
     enc = tiktoken.encoding_for_model(model)
     tokens = enc.encode(text)
@@ -33,6 +38,7 @@ def chunk_text(text: str, max_tokens: int, overlap: int, model: str) -> List[str
         start = end - overlap
     return chunks
 
+# ==== 모델 호출 함수 ====
 def call_model(client: openai.OpenAI, model: str, chunk: str, index: int) -> dict:
     prompt_filled = EXTRACTION_PROMPT.replace("{{document}}", chunk.strip())
     try:
@@ -48,26 +54,41 @@ def call_model(client: openai.OpenAI, model: str, chunk: str, index: int) -> dic
     except Exception as e:
         return {"error": str(e), "chunk_index": index}
 
-# ==== 실행 준비 ====
+# ==== 전체 텍스트 로딩 및 청크 생성 ====
 texts = [Path(p).read_text(encoding="utf-8") for p in INPUT_FILES]
 full_text = "\n".join(texts)
 chunks = chunk_text(full_text, MAX_TOKENS, OVERLAP, MODEL_NAME)
+
+# ==== 이전 결과 불러오기 ====
+if Path(OUTPUT_FILE).exists():
+    with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
+        try:
+            results = json.load(f)
+            print(f"🔄 Loaded {len(results)} existing results.")
+        except json.JSONDecodeError:
+            print("⚠️ JSON decode error. Starting fresh.")
+            results = [None] * len(chunks)
+else:
+    results = [None] * len(chunks)
+
+# ==== 처리되지 않은 청크만 선택 ====
+pending_indices = [i for i, r in enumerate(results) if r is None or "error" in r]
+print(f"🕐 Remaining chunks to process: {len(pending_indices)}")
+
+# ==== 모델 호출 ====
 client = openai.OpenAI()
 
-results = [None] * len(chunks)
-
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-    # future → (index, future)
     futures = {
-        executor.submit(call_model, client, MODEL_NAME, chunk, idx): idx
-        for idx, chunk in enumerate(chunks)
+        executor.submit(call_model, client, MODEL_NAME, chunks[idx], idx): idx
+        for idx in pending_indices
     }
     for future in tqdm(as_completed(futures), total=len(futures), desc="Processing chunks"):
         idx = futures[future]
         results[idx] = future.result()
 
-        # 10개마다 중간 저장
-        if (idx + 1) % 10 == 0 or idx == len(chunks) - 1:
+        # 중간 저장
+        if (pending_indices.index(idx) + 1) % 10 == 0 or idx == pending_indices[-1]:
             with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=2)
 

@@ -1,8 +1,12 @@
 import json
 import networkx as nx
+import os
 
+if "SSL_CERT_FILE" in os.environ:
+    print("⚠️ Removing problematic SSL_CERT_FILE:", os.environ["SSL_CERT_FILE"])
+    os.environ.pop("SSL_CERT_FILE")
 # Load JSON data
-with open('DB/graph_v2.json', 'r', encoding='utf-8') as f:
+with open('hotpotQA/graph_v2.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 # Flatten and filter entries (triples of length 3)
@@ -60,8 +64,16 @@ for entry in entries:
                    sentence=sentence,
                    weight=1)
 
-# Save as GEXF for Gephi
-nx.write_gexf(G, 'DB/graph_v7.gexf')
+# print("=== Edge Attributes Check ===")
+# for u, v, d in G.edges(data=True):
+#     for key, value in d.items():
+#         if isinstance(value, tuple):
+#             print(f"[TUPLE] Edge {u} - {v} has tuple in '{key}': {value}")
+#         elif not isinstance(value, (str, int, float)):
+#             print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
 
+# Save as GEXF for Gephi
+nx.write_gexf(G, 'HotpotQA/graph_v2.gexf')
+    
 print("File saved:")
-print(" - DB/graph_v7.gexf")
+print(" - HotpotQA/graph_v2.gexf")

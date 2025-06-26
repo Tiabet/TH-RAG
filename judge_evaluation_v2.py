@@ -5,6 +5,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from tqdm import tqdm
+from prompt.evaluation import EVALUATION_PROPMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
 
 # ────────────────────── 설정 ──────────────────────
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
