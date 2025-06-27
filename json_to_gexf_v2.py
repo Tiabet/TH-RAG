@@ -64,13 +64,13 @@ for entry in entries:
                    sentence=sentence,
                    weight=1)
 
-# print("=== Edge Attributes Check ===")
-# for u, v, d in G.edges(data=True):
-#     for key, value in d.items():
-#         if isinstance(value, tuple):
-#             print(f"[TUPLE] Edge {u} - {v} has tuple in '{key}': {value}")
-#         elif not isinstance(value, (str, int, float)):
-#             print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
+print("=== Edge Attributes Check ===")
+for u, v, d in G.edges(data=True):
+    for key, value in d.items():
+        if isinstance(value, tuple):
+            print(f"[TUPLE] Edge {u} - {v} has tuple in '{key}': {value}")
+        elif not isinstance(value, (str, int, float)):
+            print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
 
 # Save as GEXF for Gephi
 nx.write_gexf(G, 'HotpotQA/graph_v2.gexf')
