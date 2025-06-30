@@ -15,8 +15,8 @@ def remove_duplicates_and_count(file_path):
     print(f"중복된 문장 개수: {original_count - unique_count}")
     
     # 원하면 중복 제거된 문장을 새 파일로 저장 가능
-    with open('hotpotQA/fullwiki_context_sentences_deduplicated.txt', 'w', encoding='utf-8') as out:
+    with open('hotpotQA/fullwiki_contexts_deduplicated.txt', 'w', encoding='utf-8') as out:
         out.write('\n'.join(unique_lines))
 
 # 사용 예시
-remove_duplicates_and_count('hotpotQA/fullwiki_context_sentences.txt')
+remove_duplicates_and_count('hotpotQA/fullwiki_contexts.txt')

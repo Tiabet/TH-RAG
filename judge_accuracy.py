@@ -23,7 +23,7 @@ def evaluate_alignment(answer, response):
         messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
-    return completion.choices[0].message["content"]
+    return completion.choices[0].message.content.strip()
 
 def main():
     answer_data = load_json("hotpotQA/hotpot_questions.json")
@@ -35,6 +35,7 @@ def main():
         response = response_data[i]["result"]
 
         evaluation = evaluate_alignment(answer, response)
+        print(evaluation)
 
         results.append({
             "id": answer_data[i].get("id", i),
@@ -43,10 +44,18 @@ def main():
             "evaluation": evaluation
         })
 
-    with open("hotpotQA/hotpot_accuracy_evaluation.json", "w", encoding="utf-8") as f:
+    with open("hotpotQA/result/hotpot_accuracy_evaluation.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
-    print("Accuracy evaluation completed and saved to hotpotQA/hotpot_accuracy_evaluation.json")
+    print("Accuracy evaluation completed and saved to hotpotQA/result/hotpot_accuracy_evaluation.json")
+
+    # ----- 추가: accuracy 계산 -----
+    yes_count = sum(1 for r in results
+                    if str(r.get("evaluation", "")).lower().startswith("yes"))
+    accuracy = yes_count / len(results) if results else 0
+
+    print(f"\nAccuracy (evaluation == 'yes') : {accuracy:.4f}  "
+          f"({accuracy*100:.2f}%)  [{yes_count}/{len(results)}]")
 
 if __name__ == "__main__":
     openai.api_key = os.getenv("OPENAI_API_KEY")

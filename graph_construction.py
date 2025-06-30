@@ -18,8 +18,8 @@ if "SSL_CERT_FILE" in os.environ:
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-INPUT_FILES = ["hotpotQA/fullwiki_context_sentences_deduplicated.txt"]
-OUTPUT_FILE = "hotpotQA/graph_v2.json"
+INPUT_FILES = ["hotpotQA/contexts.txt"]
+OUTPUT_FILE = "hotpotQA/graph_v4.json"
 MODEL_NAME = "gpt-4o-mini"
 MAX_TOKENS = 1200
 OVERLAP = 100

@@ -71,7 +71,7 @@ class Retriever:
             print(f"\n[Attempt {attempt+1}]")
             # 1. 토픽/서브토픽
             topics_info = extract_topics_subtopics(query, self.client)
-            print(f"Topics & Subtopics: {topics_info}")
+            # print(f"Topics & Subtopics: {topics_info}")
             topic_terms = {t["topic"] for t in topics_info}
             subtopic_terms = {sub for t in topics_info for sub in t["subtopics"]}
 
@@ -91,7 +91,7 @@ class Retriever:
 
             # 3. 연결 검증
             valid_subs = [nid for nid in new_sub_nodes if self._subtopic_is_linked_to_topic(nid, topic_terms)]
-            print(f"New valid subtopic nodes: {valid_subs}")
+            # print(f"New valid subtopic nodes: {valid_subs}")
 
 
             # 4. 엔티티 추출
@@ -107,7 +107,7 @@ class Retriever:
                 attempt += 1
                 continue
             else:
-                print(f"New entities: {new_entities}")
+                print(f"New entities: {len(new_entities)}")
 
             # 5. 엔티티 간선 문장 추출
             for ent in new_entities:
@@ -141,7 +141,7 @@ class Retriever:
 
         # 7. 결과 반환
         return {
-            "entity_sentences": entity_sentences,
+            # "entity_sentences": entity_sentences,
             "faiss_results": results
         }
 

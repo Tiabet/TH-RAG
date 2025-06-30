@@ -22,8 +22,8 @@ Response: Yes, both Variety and The Advocate are LGBT-interest magazines. The Ad
 Expected output: no
 
 Input Data Format
-Ground Truth Answer: {{answer}}
-Model Generated Answer: {{response}}
+Ground Truth Answer: {answer}
+Model Generated Answer: {response}
 
 Expected Output
 yes, no, or unclear
