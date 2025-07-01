@@ -23,12 +23,16 @@ entries = [
 G = nx.Graph()
 
 for entry in entries:
-    subj, pred, obj = entry['triple'].lower()
+    subj, pred, obj = entry['triple']
     subj_st = entry['subject']['subtopic'].lower()
     subj_mt = entry['subject']['main_topic'].lower()
     obj_st = entry['object']['subtopic'].lower()
     obj_mt = entry['object']['main_topic'].lower()
-    sentence = entry.get('sentence', '').strip()
+    raw_sentence = entry.get('sentence', '')
+    if isinstance(raw_sentence, list) and len(raw_sentence) > 0:
+        sentence = raw_sentence[0].strip()
+    elif isinstance(raw_sentence, str):
+        sentence = raw_sentence.strip()
 
     # Define node IDs with prefixes
     subj_node = f"entity_{subj}"
@@ -43,7 +47,7 @@ for entry in entries:
         (subj_node, subj, 'entity'), (subj_st_node, subj_st, 'subtopic'), (subj_mt_node, subj_mt, 'topic'),
         (obj_node, obj, 'entity'), (obj_st_node, obj_st, 'subtopic'), (obj_mt_node, obj_mt, 'topic')
     ]:
-        G.add_node(node, label=label, type=typ).lower()
+        G.add_node(node, label=label.lower(), type=typ)
 
     # Hierarchical edges
     G.add_edge(subj_node, subj_st_node, label='has_subtopic', relation_type='subtopic_relation')

@@ -17,9 +17,9 @@ if not OPENAI_API_KEY:
 # 모델 및 경로 설정
 EMBED_MODEL   = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL    = os.getenv("CHAT_MODEL", "gpt-4o-mini")
-GRAPH_PATH    = os.getenv("GRAPH_PATH", "hotpotQA/graph_v2.gexf")
-INDEX_PATH    = os.getenv("INDEX_PATH", "hotpotQA/edge_index_v2.faiss")
-PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "hotpotQA/edge_payloads_v2.npy")
+GRAPH_PATH    = os.getenv("GRAPH_PATH", "hotpotQA/graph_v3.gexf")
+INDEX_PATH    = os.getenv("INDEX_PATH", "hotpotQA/edge_index_v3.faiss")
+PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "hotpotQA/edge_payloads_v3.npy")
 
 class GraphRAG:
     def __init__(

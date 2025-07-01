@@ -5,8 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
 # 입력/출력 경로
-input_path = "hotpotQA/hotpot_questions.json"
-output_path = "hotpotQA/result/hotpot_kgrag_results.json"
+input_path = "hotpotQA/questions.json"
+output_path = "hotpotQA/result/hotpot_kgrag_results_v2.json"
 temp_output_path = output_path.replace(".json", "_temp.json")
 
 # GraphRAG 인스턴스
@@ -36,7 +36,7 @@ def process(index_query):
 completed = 0
 save_every = 10
 
-with ThreadPoolExecutor(max_workers=1) as executor:
+with ThreadPoolExecutor(max_workers=10) as executor:
     futures = [executor.submit(process, (i, item)) for i, item in enumerate(questions)]
     for future in tqdm(as_completed(futures), total=len(futures), desc="Generating answers"):
         idx, result = future.result()
