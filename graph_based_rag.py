@@ -31,7 +31,6 @@ class GraphRAG:
         chat_model: str = CHAT_MODEL,
     ):
         # Retriever 초기화
-        self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
         self.retriever = Retriever(
             gexf_path=gexf_path,
             embedding_model=embed_model,

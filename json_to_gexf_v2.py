@@ -77,7 +77,7 @@ for u, v, d in G.edges(data=True):
             print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
 
 # Save as GEXF for Gephi
-nx.write_gexf(G, 'HotpotQA/graph_v3.gexf')
+nx.write_gexf(G, 'HotpotQA/graph_v4.gexf')
     
 print("File saved:")
 print(" - HotpotQA/graph_v3.gexf")
