@@ -15,11 +15,11 @@ if "SSL_CERT_FILE" in os.environ:
 Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
 # === Configuration ===
-GEXF_PATH       = "hotpotQA/graph_v3.gexf"
+GEXF_PATH       = "hotpotQA/graph_v1.gexf"
 EMBEDDING_MODEL = "text-embedding-3-small"
-INDEX_PATH      = "hotpotQA/edge_index_v3.faiss"
-PAYLOAD_PATH    = "hotpotQA/edge_payloads_v3.npy"
-MAX_WORKERS     = 10
+INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
+PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
+MAX_WORKERS     = 30
 
 # OpenAI API 키 확인
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -148,17 +148,17 @@ class EdgeEmbedderFAISS:
             return results
 
 
-# embedder = EdgeEmbedderFAISS(
-#     gexf_path=GEXF_PATH,
-#     embedding_model=EMBEDDING_MODEL,
-#     openai_api_key=OPENAI_API_KEY,
-#     index_path=INDEX_PATH,
-#     payload_path=PAYLOAD_PATH,
-# )
+embedder = EdgeEmbedderFAISS(
+    gexf_path=GEXF_PATH,
+    embedding_model=EMBEDDING_MODEL,
+    openai_api_key=OPENAI_API_KEY,
+    index_path=INDEX_PATH,
+    payload_path=PAYLOAD_PATH,
+)
 
-# if not os.path.exists(INDEX_PATH):
-#     embedder.build_index()
-#     print("FAISS index & payloads 생성 완료.")
+if not os.path.exists(INDEX_PATH):
+    embedder.build_index()
+    print("FAISS index & payloads 생성 완료.")
 # else:
 #     embedder.load_index()
 #     print("FAISS index & payloads 로드 완료.")

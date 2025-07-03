@@ -1,6 +1,8 @@
 import os
 import networkx as nx
 from typing import List, Dict, Set
+import openai
+from dotenv import load_dotenv
 
 # your_module 경로에 맞춰 아래 두 줄 경로 수정
 from edge_embedding import EdgeEmbedderFAISS
@@ -72,14 +74,19 @@ class Retriever:
             # 1. 토픽/서브토픽
             topics_info = extract_topics_subtopics(query, self.client)
             # print(f"Topics & Subtopics: {topics_info}")
+            for item in topics_info:
+                item["topic"] = item["topic"].lower()
+                item["subtopics"] = [sub.lower() for sub in item["subtopics"]]
             topic_terms = {t["topic"] for t in topics_info}
             subtopic_terms = {sub for t in topics_info for sub in t["subtopics"]}
 
             # 2. subtopic 노드 매핑
             sub_nodes = set()
             for sub in subtopic_terms:
-                matched = [nid for nid, data in self.graph.nodes(data=True)
-                           if sub in nid or sub in data.get("label", "")]
+                matched = [
+                    nid for nid, data in self.graph.nodes(data=True)
+                    if data.get("type") == "subtopic" and (sub in nid or sub in data.get("label", ""))
+                ]
                 if matched:
                     sub_nodes.update(matched)
                 else:
@@ -139,6 +146,10 @@ class Retriever:
         print(f"Retrieved {len(results)} edges from FAISS.")
         print("--- Retrieval End ---")
 
+        # === 이 두 줄 추가 ===
+        self.seen_sub_nodes = seen_sub_nodes
+        self.seen_entities = seen_entities
+
         # 7. 결과 반환
         return {
             # "entity_sentences": entity_sentences,
@@ -146,29 +157,33 @@ class Retriever:
         }
 
 
-# === 설정 부분만 수정하세요 ===
-# GEXF_PATH       = "DB/graph_v7.gexf"
-# INDEX_PATH      = "DB/edge_index_v2.faiss"
-# PAYLOAD_PATH    = "DB/edge_payloads_v2.npy"
+# # === 설정 부분만 수정하세요 ===
+# GEXF_PATH = "hotpotQA/graph_v6.gexf"
+# INDEX_PATH = "hotpotQA/edge_index_v6.faiss"
+# PAYLOAD_PATH = "hotpotQA/edge_payloads_v6.npy"
 # EMBEDDING_MODEL = "text-embedding-3-small"
-
+# OUTPUT_GEXF = "hotpotQA/test/retrieved_subgraph.gexf"
+# QUERY = "\"When a Killer Calls\" was released un 2006 to  coincide with the theatrical release of a remake directed by who?"  # <- 원하는 쿼리로 수정
+# load_dotenv()
 # # 환경변수 확인
 # OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # if not OPENAI_API_KEY:
 #     print("Error: 환경 변수 OPENAI_API_KEY를 설정해야 합니다.")
 #     exit(1)
 
-# Retriever 인스턴스화 및 실행
+# client = openai.OpenAI(api_key=OPENAI_API_KEY)
+# # Retriever 인스턴스화 및 실행
 # retriever = Retriever(
 #     gexf_path=GEXF_PATH,
 #     embedding_model=EMBEDDING_MODEL,
 #     openai_api_key=OPENAI_API_KEY,
 #     index_path=INDEX_PATH,
 #     payload_path=PAYLOAD_PATH,
+#     client = client
 # )
 
-# retrieve 메서드 호출
-# results = retriever.retrieve(top_n=10)
+# # retrieve 메서드 호출
+# results = retriever.retrieve(query=QUERY, top_n=100000)
 
 # # 결과 출력
 # print("\n=== 상위 10개 검색 결과 ===")

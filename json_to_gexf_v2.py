@@ -2,11 +2,10 @@ import json
 import networkx as nx
 import os
 
-if "SSL_CERT_FILE" in os.environ:
-    print("⚠️ Removing problematic SSL_CERT_FILE:", os.environ["SSL_CERT_FILE"])
-    os.environ.pop("SSL_CERT_FILE")
 # Load JSON data
-with open('hotpotQA/graph_v4.json', 'r', encoding='utf-8') as f:
+
+input_file = 'hotpotQA/graph_v1.json'
+with open(input_file, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 # Flatten and filter entries (triples of length 3)
@@ -24,6 +23,7 @@ G = nx.Graph()
 
 for entry in entries:
     subj, pred, obj = entry['triple']
+    subj, pred, obj = subj.lower(), pred.lower(), obj.lower()
     subj_st = entry['subject']['subtopic'].lower()
     subj_mt = entry['subject']['main_topic'].lower()
     obj_st = entry['object']['subtopic'].lower()
@@ -77,7 +77,7 @@ for u, v, d in G.edges(data=True):
             print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
 
 # Save as GEXF for Gephi
-nx.write_gexf(G, 'HotpotQA/graph_v4.gexf')
+output_dir = input_file.replace('.json', '.gexf')
+nx.write_gexf(G, output_dir)
     
-print("File saved:")
-print(" - HotpotQA/graph_v3.gexf")
+print("File saved:", output_dir)

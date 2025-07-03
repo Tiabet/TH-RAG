@@ -18,12 +18,12 @@ if "SSL_CERT_FILE" in os.environ:
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-INPUT_FILES = ["hotpotQA/contexts_v2.txt"]
-OUTPUT_FILE = "hotpotQA/graph_v5.json"
+INPUT_FILES = ["hotpotQA/contexts_distractor_1000.txt"]
+OUTPUT_FILE = "hotpotQA/graph_v1.json"
 MODEL_NAME = "gpt-4o-mini"
 MAX_TOKENS = 1200
 OVERLAP = 100
-MAX_WORKERS = 30
+MAX_WORKERS = 50
 
 # ==== 텍스트 청크 함수 ====
 def chunk_text(text: str, max_tokens: int, overlap: int, model: str) -> List[str]:
