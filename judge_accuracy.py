@@ -37,12 +37,12 @@ def evaluate_alignment_single(item):
     }
 
 def main():
-    answer_data = load_json("hotpotQA/questions.json")
-    response_data = load_json("hotpotQA/naive_answers.json")
+    answer_data = load_json("hotpotQA/sampled_qa_100.json")
+    response_data = load_json("hotpotQA/result/sampled_100_kgrag.json")
 
     items = [(answer_data[i].get("id", i),
               answer_data[i]["answer"],
-              response_data[i]["answer"]) for i in range(len(answer_data))]
+              response_data[i]["result"]) for i in range(len(answer_data))]
 
     results = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:

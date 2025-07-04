@@ -19,6 +19,7 @@ You are an expert knowledge‑graph assistant.
 
 --- Goal ---
 For the given topic **{TOPIC_LABEL}**, choose every subtopic from the list below that is helpful for answering the user's question. Select **1 to 10** subtopics. Do **NOT** invent new subtopics.
+Alwyas return at least one subtopic.
 
 --- Instructions ---
 1. Consider only the subtopics provided in **{SUBTOPIC_LIST}**.

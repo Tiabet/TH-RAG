@@ -5,7 +5,7 @@ import openai
 from dotenv import load_dotenv
 
 # from Retriever import Retriever  # Retriever.py에 정의된 클래스
-from Retriever_v1 import Retriever  # retriever_test.py에 정의된 클래스
+from Retriever_v3 import Retriever  # retriever_test.py에 정의된 클래스
 from prompt.answer import ANSWER_PROMPT
 
 # 환경 변수 로드
@@ -17,9 +17,9 @@ if not OPENAI_API_KEY:
 # 모델 및 경로 설정
 EMBED_MODEL   = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL    = os.getenv("CHAT_MODEL", "gpt-4o-mini")
-GRAPH_PATH    = os.getenv("GRAPH_PATH", "hotpotQA/graph_v6.gexf")
-INDEX_PATH    = os.getenv("INDEX_PATH", "hotpotQA/edge_index_v6.faiss")
-PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "hotpotQA/edge_payloads_v6.npy")
+GRAPH_PATH    = os.getenv("GRAPH_PATH", "hotpotQA/graph_v1.gexf")
+INDEX_PATH    = os.getenv("INDEX_PATH", "hotpotQA/edge_index_v1.faiss")
+PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "hotpotQA/edge_payloads_v1.npy")
 
 class GraphRAG:
     def __init__(
@@ -58,7 +58,7 @@ class GraphRAG:
     def answer(self, query: str) -> str:
         # topic_infos = extract_topics_subtopics(query, self.client)
         # Retriever로부터 entity_sentences와 faiss_results 얻기
-        outputs = self.retriever.retrieve(query, top_n=50)  # query 인자 추가
+        outputs = self.retriever.retrieve(query, top_k=50)  # query 인자 추가
         entity_sentences = outputs.get("entity_sentences", {})
         faiss_results = outputs.get("faiss_results", [])
 

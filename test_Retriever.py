@@ -1,73 +1,128 @@
-# run_retrieve_and_visualize.py
+#!/usr/bin/env python3
+"""Run the new Retriever pipeline and export a focused sub‑graph as GEXF.
+
+Adapts the original *run_retrieve_and_visualize.py* to work with the revamped
+`retriever.py` (LLM‑driven topic & subtopic selection).
+"""
+
+from __future__ import annotations
 
 import os
-import matplotlib.pyplot as plt
 import networkx as nx
 import openai
 from dotenv import load_dotenv
-from Retriever_v2 import Retriever  # 너가 작성한 retrieve.py에서 import
 
-# === 사용자 설정 ===
+from Retriever_v3 import Retriever  # ← 새 구현
+
+# ---------------------------------------------------------------------------
+# User‑configurable paths
+# ---------------------------------------------------------------------------
 GEXF_PATH = "hotpotQA/graph_v1.gexf"
 INDEX_PATH = "hotpotQA/edge_index_v1.faiss"
 PAYLOAD_PATH = "hotpotQA/edge_payloads_v1.npy"
 EMBEDDING_MODEL = "text-embedding-3-small"
 OUTPUT_GEXF = "hotpotQA/test/retrieved_subgraph_v1.gexf"
-QUERY = "Which American comedian born on March 21, 1962, appeared in the movie \"Sleepless in Seattle?\""
+QUERY = (
+    "Which American comedian born on March 21, 1962, appeared in the movie \"Sleepless in Seattle?\""
+)
+TOP_K = 10000  # FAISS edges to retrieve
 
-# 환경 변수에서 OpenAI API 키 불러오기
+# ---------------------------------------------------------------------------
+# Environment & OpenAI client
+# ---------------------------------------------------------------------------
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("환경 변수 'OPENAI_API_KEY'가 설정되지 않았습니다.")
+
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
-# === 리트리버 초기화 ===
+
+# ---------------------------------------------------------------------------
+# Initialise Retriever
+# ---------------------------------------------------------------------------
 retriever = Retriever(
     gexf_path=GEXF_PATH,
     embedding_model=EMBEDDING_MODEL,
     openai_api_key=OPENAI_API_KEY,
     index_path=INDEX_PATH,
     payload_path=PAYLOAD_PATH,
-    client=client
+    client=client,
 )
 
-# === 리트리브 실행 ===
-results = retriever.retrieve(query=QUERY, top_n=10000)  # top_n은 조정 가능
+# ---------------------------------------------------------------------------
+# Run retrieval
+# ---------------------------------------------------------------------------
+results = retriever.retrieve(query=QUERY, top_k=TOP_K)
 
-# === 노드/엣지 추출 ===
-selected_nodes = set()
-selected_edges = []
+# ---------------------------------------------------------------------------
+# 1) Add nodes & FAISS edges from search hits
+# ---------------------------------------------------------------------------
+selected_nodes: set[str] = set()
+selected_edges: list[tuple[str, str, dict]] = []
 
 for hit in results["faiss_results"]:
-    source = hit["source"]
-    target = hit["target"]
-    sentence = hit["sentence"]
-    label = hit.get("label", "")
+    src, tgt = hit["source"], hit["target"]
+    selected_nodes.update([src, tgt])
+    selected_edges.append(
+        (
+            src,
+            tgt,
+            {
+                "label": hit.get("label", ""),
+                "sentence": hit.get("sentence", ""),
+                "faiss_score": hit["score"],
+                "rank": hit["rank"],
+            },
+        )
+    )
 
-    # 노드 추가
-    selected_nodes.update([source, target])
+# ---------------------------------------------------------------------------
+# 2) Include chosen subtopics + (subtopic ↔ entity) edges
+# ---------------------------------------------------------------------------
+G = retriever.graph  # shorthand
 
-    # FAISS 결과 기반 엣지 구성
-    selected_edges.append((source, target, {
-        "label": label,
-        "sentence": sentence,
-        "faiss_score": hit["score"],
-        "rank": hit["rank"]
-    }))
+# Build label→nid index for subtopics once
+sub_lbl2nid = {
+    data.get("label", ""): nid
+    for nid, data in G.nodes(data=True)
+    if data.get("type") == "subtopic"
+}
 
+for topic_lbl, sub_lbls in retriever.chosen_subtopics.items():
+    for sub_lbl in sub_lbls:
+        sub_nid = sub_lbl2nid.get(sub_lbl)
+        if not sub_nid:
+            continue
+        selected_nodes.add(sub_nid)
 
-# === ✅ 추출된 subtopic 노드도 포함시킴 ===
-selected_nodes.update(retriever.seen_sub_nodes)
-# 기존 selected_edges 이후에 추가
-selected_edges.extend(retriever.subtopic_entity_edges)
+        # gather edges subtopic‑entity
+        for nbr in G.neighbors(sub_nid):
+            if G.nodes[nbr].get("type") == "entity":
+                edge_data = G.get_edge_data(sub_nid, nbr)
+                selected_nodes.add(nbr)
+                selected_edges.append(
+                    (
+                        sub_nid,
+                        nbr,
+                        {
+                            "label": edge_data.get("label", "subtopic‑entity"),
+                            "sentence": edge_data.get("sentence", ""),
+                        },
+                    )
+                )
 
-
-# === 3. 서브그래프 생성 ===
+# ---------------------------------------------------------------------------
+# 3) Build sub‑graph and export
+# ---------------------------------------------------------------------------
 subgraph = nx.Graph()
 subgraph.add_nodes_from(selected_nodes)
 subgraph.add_edges_from(selected_edges)
 
-# === 5. 저장 ===
 print(f"✅ 노드 수: {len(subgraph.nodes)} / 엣지 수: {len(subgraph.edges)}")
+
+output_dir = os.path.dirname(OUTPUT_GEXF)
+if output_dir and not os.path.exists(output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+
 nx.write_gexf(subgraph, OUTPUT_GEXF)
 print(f"📁 저장 완료: {OUTPUT_GEXF}")
