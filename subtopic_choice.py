@@ -1,6 +1,17 @@
+"""
+Subtopic-selection helper using an LLM **with automatic retry logic**.
+
+* Supplies the LLM with only the subtopic labels that are direct children of a
+  given topic node (type=="subtopic" and 1‑hop neighbour of the topic).
+* The LLM must choose 1‑10 relevant subtopics. If the response is malformed or
+  the chosen list is empty/invalid, the call is retried up to ``MAX_RETRIES``
+  times before giving up and returning an empty list.
+"""
+
 from __future__ import annotations
 
 import json
+import time
 from typing import List, Tuple
 
 import networkx as nx
@@ -8,17 +19,24 @@ from openai import OpenAI
 from prompt.subtopic_choice import SUBTOPIC_CHOICE_PROMPT
 
 DEFAULT_MODEL = "gpt-4o-mini"
-SUBTOPIC_CHOICE_PROMPT = SUBTOPIC_CHOICE_PROMPT
+MAX_RETRIES = 3          # ← configurable global
+RETRY_BACKOFF = 2.0      # seconds between retries
+
+# ---------------------------------------------------------------------------
+# Graph helpers
+# ---------------------------------------------------------------------------
 
 def extract_subtopics_for_topic(graph: nx.Graph, topic_nid: str) -> List[Tuple[str, str]]:
     """Return ``[(sub_nid, sub_label), ...]`` directly connected to *topic_nid*."""
-    subtopics = []
-    for nbr in graph.neighbors(topic_nid):
-        data = graph.nodes[nbr]
-        if data.get("type") == "subtopic":
-            subtopics.append((nbr, data.get("label", "")))
-    return subtopics
+    return [
+        (nbr, graph.nodes[nbr].get("label", ""))
+        for nbr in graph.neighbors(topic_nid)
+        if graph.nodes[nbr].get("type") == "subtopic"
+    ]
 
+# ---------------------------------------------------------------------------
+# Core LLM selector – with retries
+# ---------------------------------------------------------------------------
 
 def choose_subtopics_for_topic(
     *,
@@ -29,33 +47,27 @@ def choose_subtopics_for_topic(
     model: str = DEFAULT_MODEL,
     max_subtopics: int = 10,
 ) -> List[str]:
-    """Ask the LLM to pick up to *max_subtopics* relevant subtopics for a given topic.
+    """Return up to ``max_subtopics`` relevant subtopic **labels** for *topic_nid*.
 
-    Parameters
-    ----------
-    question : str
-        The user's question.
-    topic_nid : str
-        Node‑id of the topic in the graph.
-    graph : nx.Graph
-    client : OpenAI
-    model : str
-    max_subtopics : int, default 10
-
-    Returns
-    -------
-    List[str]
-        List of chosen subtopic *labels* preserving the order of the supplied list.
+    The function will retry ``MAX_RETRIES`` times if the LLM response is not
+    valid JSON, the chosen list is empty, or contains items outside the allowed
+    list. On final failure it returns an empty list instead of raising.
     """
+
     if graph.nodes[topic_nid].get("type") != "topic":
         raise ValueError(f"Node {topic_nid} is not of type 'topic'.")
 
+    # --------------------------------------------------
+    # 1) Gather candidate subtopics
+    # --------------------------------------------------
     sub_nodes = extract_subtopics_for_topic(graph, topic_nid)
     if not sub_nodes:
         return []
-
     sub_labels = [lbl for _nid, lbl in sub_nodes]
 
+    # --------------------------------------------------
+    # 2) Build prompt (static across retries)
+    # --------------------------------------------------
     prompt = (
         SUBTOPIC_CHOICE_PROMPT
         .replace("{TOPIC_LABEL}", graph.nodes[topic_nid].get("label", ""))
@@ -63,57 +75,71 @@ def choose_subtopics_for_topic(
         .replace("{question}", question)
     )
 
-    print(len(sub_labels))
+    # --------------------------------------------------
+    # 3) Retry loop
+    # --------------------------------------------------
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0,
+            )
+            content = response.choices[0].message.content
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0,
-    )
+            data = json.loads(content)
+            chosen = data.get("subtopics")
 
+            if (
+                isinstance(chosen, list)
+                and 1 <= len(chosen) <= max_subtopics
+                and all(lbl in sub_labels for lbl in chosen)
+            ):
+                # Preserve original order of sub_labels
+                return [lbl for lbl in sub_labels if lbl in chosen]
 
-    content = response.choices[0].message.content
+            print(
+                f"⚠️  Attempt {attempt}: invalid chosen list → {chosen}. Retrying…"
+            )
+        except (json.JSONDecodeError, KeyError) as exc:
+            print(
+                f"⚠️  Attempt {attempt}: JSON parse/format error → {exc}. Retrying…"
+            )
+        except Exception as exc:  # catch‑all for OpenAI errors
+            print(f"⚠️  Attempt {attempt}: OpenAI error → {exc}. Retrying…")
 
-    # ----------------- Parse -----------------
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Failed to parse JSON from LLM:\n{content}\nError: {exc}")
+        # back‑off before next retry (unless last)
+        if attempt < MAX_RETRIES:
+            time.sleep(RETRY_BACKOFF)
 
-    chosen = data.get("subtopics")
-    if not isinstance(chosen, list) or not (1 <= len(chosen) <= max_subtopics):
-        raise ValueError(f"Invalid 'subtopics' list size: {chosen}")
-
-    invalid = [s for s in chosen if s not in sub_labels]
-    if invalid:
-        raise ValueError(f"LLM chose subtopics not in allowed list: {invalid}")
-
-    ordered = [lbl for lbl in sub_labels if lbl in chosen]
-    return ordered
+    # --------------------------------------------------
+    # 4) Final fallback – return empty list
+    # --------------------------------------------------
+    print("🚫  All retries exhausted – returning empty subtopic list.")
+    return []
 
 # ---------------------------------------------------------------------------
-# Stand‑alone quick test
+# Quick test
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import os
 
     gexf_path = "hotpotQA/graph_v1.gexf"
     if not os.path.exists(gexf_path):
-        raise SystemExit("Place a graph.gexf or set GEXF_PATH env var.")
+        raise SystemExit("Place a graph_v1.gexf or set GEXF_PATH env var.")
 
     G = nx.read_gexf(gexf_path)
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    # Example pick the first topic node
     # topic_id = next(n for n, d in G.nodes(data=True) if d.get("type") == "topic")
     topic_id = "topic_entertainment"
-
     print("Topic:", G.nodes[topic_id]["label"])
+
     subs = choose_subtopics_for_topic(
-        question="Which American comedian born on March 21, 1962, appeared in the movie \"Sleepless in Seattle?\"",
+        question="Which American comedian born on March 21, 1962, appeared in the movie 'Sleepless in Seattle'?",
         topic_nid=topic_id,
         graph=G,
         client=client,
