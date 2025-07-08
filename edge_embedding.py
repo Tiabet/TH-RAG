@@ -15,10 +15,10 @@ if "SSL_CERT_FILE" in os.environ:
 Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
 # === Configuration ===
-GEXF_PATH       = "hotpotQA/graph_v1.gexf"
+GEXF_PATH       = "hotpotQA/graph_v2.gexf"
 EMBEDDING_MODEL = "text-embedding-3-small"
-INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
-PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
+INDEX_PATH      = "hotpotQA/edge_index_v2.faiss"
+PAYLOAD_PATH    = "hotpotQA/edge_payloads_v2.npy"
 MAX_WORKERS     = 30
 
 # OpenAI API 키 확인

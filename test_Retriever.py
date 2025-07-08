@@ -17,13 +17,13 @@ from Retriever_v3 import Retriever  # ← 새 구현
 # ---------------------------------------------------------------------------
 # User‑configurable paths
 # ---------------------------------------------------------------------------
-GEXF_PATH = "hotpotQA/graph_v1.gexf"
-INDEX_PATH = "hotpotQA/edge_index_v1.faiss"
-PAYLOAD_PATH = "hotpotQA/edge_payloads_v1.npy"
+GEXF_PATH = "hotpotQA/graph_v3.gexf"
+INDEX_PATH = "hotpotQA/edge_index_v2.faiss"
+PAYLOAD_PATH = "hotpotQA/edge_payloads_v2.npy"
 EMBEDDING_MODEL = "text-embedding-3-small"
-OUTPUT_GEXF = "hotpotQA/test/retrieved_subgraph_v1.gexf"
+OUTPUT_GEXF = "hotpotQA/test/subgraph_martinscorsesse.gexf"
 QUERY = (
-    "Which American comedian born on March 21, 1962, appeared in the movie \"Sleepless in Seattle?\""
+    "Leonard Logsdail had a cameo role in the biographical film directed by whom?"
 )
 TOP_K = 10000  # FAISS edges to retrieve
 

@@ -9,7 +9,7 @@ Return the chosen topics *exactly* as they appear in the list (case‑sensitive)
 --- Instructions ---
 1. The list of allowed topics will be provided in the placeholder **{TOPIC_LIST}**.
 2. Read the user question provided in the placeholder **{question}**.
-3. Identify every topic from **{TOPIC_LIST}** that is pertinent to the question (minimum 1, maximum 5).
+3. Identify every topic from **{TOPIC_LIST}** that is pertinent to the question (minimum 1, maximum 5).
 4. Output **only** valid JSON. Do **not** include markdown, comments, or extra text.
 5. JSON format:
 

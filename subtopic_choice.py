@@ -19,8 +19,8 @@ from openai import OpenAI
 from prompt.subtopic_choice import SUBTOPIC_CHOICE_PROMPT
 
 DEFAULT_MODEL = "gpt-4o-mini"
-MAX_RETRIES = 3          # ← configurable global
-RETRY_BACKOFF = 2.0      # seconds between retries
+MAX_RETRIES = 5        # ← configurable global
+RETRY_BACKOFF = 0.2      # seconds between retries
 
 # ---------------------------------------------------------------------------
 # Graph helpers
@@ -37,7 +37,6 @@ def extract_subtopics_for_topic(graph: nx.Graph, topic_nid: str) -> List[Tuple[s
 # ---------------------------------------------------------------------------
 # Core LLM selector – with retries
 # ---------------------------------------------------------------------------
-
 def choose_subtopics_for_topic(
     *,
     question: str,
@@ -45,29 +44,23 @@ def choose_subtopics_for_topic(
     graph: nx.Graph,
     client: OpenAI,
     model: str = DEFAULT_MODEL,
-    max_subtopics: int = 10,
+    max_subtopics: int = 50,
 ) -> List[str]:
     """Return up to ``max_subtopics`` relevant subtopic **labels** for *topic_nid*.
 
-    The function will retry ``MAX_RETRIES`` times if the LLM response is not
-    valid JSON, the chosen list is empty, or contains items outside the allowed
-    list. On final failure it returns an empty list instead of raising.
+    LLM의 응답 중 유효한 서브토픽만 필터링해서 반환함. 응답이 JSON 파싱 실패 시에만 재시도.
     """
 
     if graph.nodes[topic_nid].get("type") != "topic":
         raise ValueError(f"Node {topic_nid} is not of type 'topic'.")
 
-    # --------------------------------------------------
-    # 1) Gather candidate subtopics
-    # --------------------------------------------------
+    # 1) 후보 서브토픽 모으기
     sub_nodes = extract_subtopics_for_topic(graph, topic_nid)
     if not sub_nodes:
         return []
     sub_labels = [lbl for _nid, lbl in sub_nodes]
 
-    # --------------------------------------------------
-    # 2) Build prompt (static across retries)
-    # --------------------------------------------------
+    # 2) 프롬프트 구성
     prompt = (
         SUBTOPIC_CHOICE_PROMPT
         .replace("{TOPIC_LABEL}", graph.nodes[topic_nid].get("label", ""))
@@ -75,9 +68,7 @@ def choose_subtopics_for_topic(
         .replace("{question}", question)
     )
 
-    # --------------------------------------------------
-    # 3) Retry loop
-    # --------------------------------------------------
+    # 3) 최대 MAX_RETRIES까지 JSON 파싱 실패 시 재시도
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             response = client.chat.completions.create(
@@ -91,35 +82,30 @@ def choose_subtopics_for_topic(
             content = response.choices[0].message.content
 
             data = json.loads(content)
-            chosen = data.get("subtopics")
+            chosen = data.get("subtopics", [])
 
-            if (
-                isinstance(chosen, list)
-                and 1 <= len(chosen) <= max_subtopics
-                and all(lbl in sub_labels for lbl in chosen)
-            ):
-                # Preserve original order of sub_labels
-                return [lbl for lbl in sub_labels if lbl in chosen]
+            if not isinstance(chosen, list):
+                print(f"⚠️ Attempt {attempt}: 'subtopics' is not a list. Returning [].")
+                return []
 
-            print(
-                f"⚠️  Attempt {attempt}: invalid chosen list → {chosen}. Retrying…"
-            )
+            # 허용된 서브토픽만 필터링
+            valid_chosen = [lbl for lbl in sub_labels if lbl in chosen]
+
+            if not valid_chosen:
+                print(f"⚠️ Attempt {attempt}: No valid subtopics in LLM response.")
+            return valid_chosen[:max_subtopics]
+
         except (json.JSONDecodeError, KeyError) as exc:
-            print(
-                f"⚠️  Attempt {attempt}: JSON parse/format error → {exc}. Retrying…"
-            )
-        except Exception as exc:  # catch‑all for OpenAI errors
-            print(f"⚠️  Attempt {attempt}: OpenAI error → {exc}. Retrying…")
+            print(f"⚠️ Attempt {attempt}: JSON parse/format error → {exc}. Retrying…")
+        except Exception as exc:
+            print(f"⚠️ Attempt {attempt}: OpenAI error → {exc}. Retrying…")
 
-        # back‑off before next retry (unless last)
         if attempt < MAX_RETRIES:
             time.sleep(RETRY_BACKOFF)
 
-    # --------------------------------------------------
-    # 4) Final fallback – return empty list
-    # --------------------------------------------------
-    print("🚫  All retries exhausted – returning empty subtopic list.")
+    print("🚫 All retries exhausted – returning empty subtopic list.")
     return []
+
 
 # ---------------------------------------------------------------------------
 # Quick test

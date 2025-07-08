@@ -35,28 +35,18 @@ def extract_graph_topic_labels(graph: nx.Graph) -> List[str]:
                 labels_seen.add(lbl)
     return labels
 
-
 def choose_topics_from_graph(
     question: str,
     graph: nx.Graph,
     client: OpenAI,
     model: str = DEFAULT_MODEL,
     max_topics: int = 5,
+    max_retries: int = 3,
 ) -> List[str]:
     """Ask the LLM to pick up to *max_topics* relevant topics from *graph*.
 
-    Parameters
-    ----------
-    question : str
-        The user's natural‑language query.
-    graph : nx.Graph
-        A NetworkX graph with node attribute ``type == 'topic'`` and a ``label``.
-    client : OpenAI
-        An instantiated ``openai.OpenAI`` client (same pattern as elsewhere).
-    model : str, optional
-        OpenAI model name (default ``gpt-4o-mini``).
-    max_topics : int, optional
-        Upper bound of topics to return. **Must** match the prompt spec (≤ 5).
+    If the LLM response is invalid, it will retry up to `max_retries` times
+    by re-asking the same prompt.
 
     Returns
     -------
@@ -66,58 +56,51 @@ def choose_topics_from_graph(
     Raises
     ------
     ValueError
-        If LLM output is not valid JSON, or chosen topics are not in the list.
+        If no valid result is obtained after max_retries.
     """
 
     topic_labels = extract_graph_topic_labels(graph)
     if not topic_labels:
         raise ValueError("Graph contains no topic nodes (type='topic').")
 
-    # Fill the template placeholders
     prompt_str = (
         TOPIC_CHOICE_PROMPT
         .replace("{TOPIC_LIST}", json.dumps(topic_labels, ensure_ascii=False))
         .replace("{question}", question)
     )
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt_str},
-        ],
-        # temperature 0 to minimise creative deviations
-        temperature=0,
-    )
-
-    print(len(topic_labels))
-
-    content = response.choices[0].message.content
-
-    # ----------------- Parse & validate -----------------
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise ValueError(
-            f"Failed to parse JSON from LLM:\n{content}\nError: {exc}"  # noqa: E501
+    for attempt in range(1, max_retries + 1):
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt_str},
+            ],
+            temperature=0,
         )
 
-    chosen = data.get("topics")
-    if not isinstance(chosen, list) or not (1 <= len(chosen) <= max_topics):
-        raise ValueError(
-            f"LLM returned invalid 'topics' list (size): {chosen}"  # noqa: E501
-        )
+        content = response.choices[0].message.content
 
-    # Ensure every chosen topic is in the allowed list
-    invalid = [t for t in chosen if t not in topic_labels]
-    if invalid:
-        raise ValueError(
-            f"LLM chose topics that are not in the supplied list: {invalid}"  # noqa: E501
-        )
+        try:
+            data = json.loads(content)
+            chosen = data.get("topics")
 
-    # Preserve original order of topic_labels as required by prompt
-    ordered = [lbl for lbl in topic_labels if lbl in chosen]
-    return ordered
+            if not isinstance(chosen, list) or not (1 <= len(chosen) <= max_topics):
+                raise ValueError("Invalid topic list format or length.")
+
+            invalid = [t for t in chosen if t not in topic_labels]
+            if invalid:
+                raise ValueError("Returned topics not in topic list.")
+
+            ordered = [lbl for lbl in topic_labels if lbl in chosen]
+            return ordered
+
+        except Exception as e:
+            print(f"[Attempt {attempt}] Failed to parse or validate response: {e}")
+            if attempt == max_retries:
+                raise ValueError("Failed to get valid topic list after multiple attempts.")
+
+    raise RuntimeError("Unreachable fallback")  # Just in case
 
 # ---------------------------------------------------------------------------
 # Example standalone usage (for local testing)

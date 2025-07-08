@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""
+normalize_subtopics.py  —  composite subtopic 분해·병합 스크립트
+
+지원 구분자 (대/소문자 무시):
+  • "/"          (slash)
+  • " and "      (and)
+  • " & "        (ampersand)
+  • "," 또는 ", and "
+
+동일 의미 라벨 판정은 `normalize_text()`를 통해
+  소문자화 → 관사 제거 → 구두점 제거 → 공백 정리  후 비교합니다.
+"""
+
+from __future__ import annotations
+
+import re
+import string
+import sys
+from pathlib import Path
+from typing import Dict
+
+import networkx as nx
+
+# ──────────────────────────────────────────
+# 텍스트 정규화
+# ──────────────────────────────────────────
+def normalize_text(text: str) -> str:
+    def remove_articles(s: str) -> str:
+        return re.sub(r"\b(a|an|the)\b", " ", s)
+
+    def remove_punctuation(s: str) -> str:
+        return "".join(c for c in s if c not in string.punctuation)
+
+    def white_space_fix(s: str) -> str:
+        return " ".join(s.split())
+
+    text = text.lower()
+    text = remove_articles(text)
+    text = remove_punctuation(text)
+    text = white_space_fix(text)
+    return text
+
+
+def snake(s: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
+
+# ──────────────────────────────────────────
+# 구분자 패턴
+# ──────────────────────────────────────────
+DELIM_REGEX = re.compile(
+    r"\s*/\s*"          # slash
+    r"|\s+and\s+"       # and
+    r"|\s*&\s*"         # &
+    r"|\s*,\s*"         # comma
+    r"|\s*,\s*and\s+",  # , and
+    flags=re.I,
+)
+
+# ──────────────────────────────────────────
+# 보조 인덱스
+# ──────────────────────────────────────────
+def build_norm_label_index(G: nx.Graph) -> Dict[str, str]:
+    """정규화 라벨 → 노드 ID"""
+    idx: Dict[str, str] = {}
+    for nid, data in G.nodes(data=True):
+        if data.get("type") != "subtopic":
+            continue
+        norm = normalize_text(data.get("label", ""))
+        if norm and norm not in idx:
+            idx[norm] = nid
+    return idx
+
+# ──────────────────────────────────────────
+# 메인 변환
+# ──────────────────────────────────────────
+def normalize_composite_subtopics(G: nx.Graph) -> None:
+    label2nid = build_norm_label_index(G)
+
+    # 대상 노드 수집
+    targets = [
+        (nid, data["label"])
+        for nid, data in G.nodes(data=True)
+        if data.get("type") == "subtopic"
+        and DELIM_REGEX.search(str(data.get("label", "")))
+    ]
+
+    for orig_nid, raw_label in targets:
+        parts = [p.strip() for p in DELIM_REGEX.split(raw_label) if p.strip()]
+        if len(parts) < 2:
+            continue
+
+        incident_edges = list(G.edges(orig_nid, data=True))
+
+        for part in parts:
+            norm = normalize_text(part)
+            if not norm:
+                continue
+
+            # 1) 기존 노드 재사용 or 신규 생성
+            if norm in label2nid:
+                dest = label2nid[norm]
+            else:
+                dest = f"subtopic_{snake(norm)}"
+                if dest not in G:
+                    attrs = G.nodes[orig_nid].copy()
+                    attrs["label"] = part          # 원본 그대로 표시
+                    G.add_node(dest, **attrs)
+                label2nid[norm] = dest
+
+            # 2) 엣지 복사 (중복 방지)
+            for u, v, edata in incident_edges:
+                nbr = v if u == orig_nid else u
+                if not G.has_edge(dest, nbr):
+                    G.add_edge(dest, nbr, **edata)
+
+        # 3) 복합 노드 삭제
+        G.remove_node(orig_nid)
+
+        for i, (u, v, data) in enumerate(G.edges(data=True)):
+            data['id'] = str(i)
+
+# ──────────────────────────────────────────
+# CLI 진입
+# ──────────────────────────────────────────
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python normalize_subtopics.py input.gexf output.gexf")
+        # python normalize_subtopics.py hotpotQA/graph_v1.gexf hotpotQA/graph_v1_processed.gexf
+        sys.exit(1)
+
+    src, dst = map(Path, sys.argv[1:])
+    if not src.exists():
+        print(f"❌  input file not found: {src}")
+        sys.exit(1)
+
+    print(f"📖  loading graph: {src}")
+    graph = nx.read_gexf(src)
+
+    normalize_composite_subtopics(graph)
+
+    print(f"💾  writing graph → {dst}")
+    nx.write_gexf(graph, dst)
+    print("✅  done.")

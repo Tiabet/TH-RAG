@@ -18,8 +18,8 @@ SUBTOPIC_CHOICE_PROMPT = """
 You are an expert knowledge‑graph assistant.
 
 --- Goal ---
-For the given topic **{TOPIC_LABEL}**, choose every subtopic from the list below that is helpful for answering the user's question. Select **1 to 10** subtopics. Do **NOT** invent new subtopics.
-Alwyas return at least one subtopic.
+For the given topic **{TOPIC_LABEL}**, choose every subtopic from the list below that is helpful for answering the user's question. Select **25 to 50** subtopics. Do **NOT** invent new subtopics.
+Alwyas return at least 25 subtopics, unless case of list is shorter than 25.
 
 --- Instructions ---
 1. Consider only the subtopics provided in **{SUBTOPIC_LIST}**.
@@ -28,6 +28,7 @@ Alwyas return at least one subtopic.
 4. Preserve the original order of **{SUBTOPIC_LIST}** when listing the chosen subtopics.
 5. Format:
    {"subtopics": ["SubLbl1", "SubLbl2", ...]}
+6. You MUST ONLY choose from the list provided below. Do not invent or rephrase any subtopics.
 
 --- Allowed Subtopics for {TOPIC_LABEL} ---
 {SUBTOPIC_LIST}

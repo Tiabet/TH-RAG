@@ -17,9 +17,9 @@ def load_json(filename):
         return json.load(f)
 
 def evaluate_alignment_single(item):
-    i, answer, response = item
+    i, query, answer, response = item
     try:
-        prompt = ACCURACY_EVALUATION_PROMPT.format(answer=answer, response=response)
+        prompt = ACCURACY_EVALUATION_PROMPT.format(query=query, answer=answer, response=response)
         completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
@@ -31,16 +31,18 @@ def evaluate_alignment_single(item):
 
     return {
         "id": i,
+        "query" : query,
         "answer": answer,
         "response": response,
         "evaluation": evaluation
     }
 
 def main():
-    answer_data = load_json("hotpotQA/sampled_qa_100.json")
-    response_data = load_json("hotpotQA/result/sampled_100_kgrag.json")
+    answer_data = load_json("hotpotQA/sampled_qa_200.json")
+    response_data = load_json("hotpotQA/result/hotpot_200_v1.json")
 
     items = [(answer_data[i].get("id", i),
+              answer_data[i]["query"],
               answer_data[i]["answer"],
               response_data[i]["result"]) for i in range(len(answer_data))]
 
@@ -50,10 +52,10 @@ def main():
         for future in tqdm(as_completed(futures), total=len(futures)):
             results.append(future.result())
 
-    with open("hotpotQA/result/hotpot_accuracy_evaluation_naive.json", "w", encoding="utf-8") as f:
+    with open("hotpotQA/result/hotpot_200_1_accuracy.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
-    print("Accuracy evaluation completed and saved to hotpotQA/result/hotpot_accuracy_evaluation_naive.json")
+    print("Accuracy evaluation completed and saved to hotpotQA/result/hotpot_new_4.json")
 
     yes_count = sum(1 for r in results
                     if str(r.get("evaluation", "")).lower().startswith("yes"))
