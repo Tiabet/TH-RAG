@@ -11,6 +11,7 @@ import os
 import networkx as nx
 import openai
 from dotenv import load_dotenv
+import time
 
 from Retriever_v3 import Retriever  # ← 새 구현
 
@@ -21,9 +22,9 @@ GEXF_PATH = "hotpotQA/graph_v3.gexf"
 INDEX_PATH = "hotpotQA/edge_index_v2.faiss"
 PAYLOAD_PATH = "hotpotQA/edge_payloads_v2.npy"
 EMBEDDING_MODEL = "text-embedding-3-small"
-OUTPUT_GEXF = "hotpotQA/test/subgraph_martinscorsesse.gexf"
+OUTPUT_GEXF = "hotpotQA/test/Bronx.gexf"
 QUERY = (
-    "Leonard Logsdail had a cameo role in the biographical film directed by whom?"
+    "What was the first year a scientific journal published by an organization located in the Bronx was published?"  
 )
 TOP_K = 10000  # FAISS edges to retrieve
 
@@ -48,13 +49,15 @@ retriever = Retriever(
     payload_path=PAYLOAD_PATH,
     client=client,
 )
-
+start_time = time.time()
 # ---------------------------------------------------------------------------
 # Run retrieval
 # ---------------------------------------------------------------------------
 results = retriever.retrieve(query=QUERY, top_k=TOP_K)
 
-# ---------------------------------------------------------------------------
+end_time = time.time()
+print(f"Retrieval completed in {end_time - start_time:.2f} seconds.")
+# --------------------  -------------------------------------------------------
 # 1) Add nodes & FAISS edges from search hits
 # ---------------------------------------------------------------------------
 selected_nodes: set[str] = set()

@@ -14,7 +14,7 @@ MAX_WORKERS = 6            # 스레드 개수(네트워크·API 한도에 맞춰
 RANDOM_SEED = 42           # 재현성 필요 시 None 대신 정수
 # ──────────────────────────────────────────────────
 
-with open("UltraDomain/result/agriculture_kgrag_result_v3.json", encoding="utf-8") as f1, \
+with open("UltraDomain/result/kgrag_new_v1.json", encoding="utf-8") as f1, \
      open("UltraDomain/result/agriculture_lightrag_result.json", encoding="utf-8") as f2:
     graph_results = json.load(f1)
     light_results = json.load(f2)

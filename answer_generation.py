@@ -5,8 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
 # 입력/출력 경로
-input_path = "hotpotQA/sampled_qa_200.json"
-output_path = "hotpotQA/result/hotpot_200_v1.json"
+input_path = "UltraDomain/result/agriculture_lightrag_result.json"
+output_path = "UltraDomain/result/kgrag_new_v1.json"
 temp_output_path = output_path.replace(".json", "_temp.json")
 
 # GraphRAG 인스턴스

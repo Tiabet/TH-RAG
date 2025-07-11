@@ -38,8 +38,9 @@ def evaluate_alignment_single(item):
     }
 
 def main():
-    answer_data = load_json("hotpotQA/sampled_qa_200.json")
-    response_data = load_json("hotpotQA/result/hotpot_200_v1.json")
+    answer_data = load_json("hotpotQA/sampled_qa_100.json")
+    # response_data = load_json("hotpotQA/result/hotpot_200_v1.json")
+    response_data = load_json("LightRAG/hotpotqa_result.json")
 
     items = [(answer_data[i].get("id", i),
               answer_data[i]["query"],

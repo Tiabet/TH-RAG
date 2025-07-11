@@ -195,6 +195,7 @@ cython_debug/
 *.faiss
 *.gexf
 *.json
+*.jsonl
 
 *.csv
 *.tsv

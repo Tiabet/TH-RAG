@@ -120,25 +120,19 @@ def normalize_composite_subtopics(G: nx.Graph) -> None:
         for i, (u, v, data) in enumerate(G.edges(data=True)):
             data['id'] = str(i)
 
-# ──────────────────────────────────────────
-# CLI 진입
-# ──────────────────────────────────────────
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python normalize_subtopics.py input.gexf output.gexf")
-        # python normalize_subtopics.py hotpotQA/graph_v1.gexf hotpotQA/graph_v1_processed.gexf
-        sys.exit(1)
+# input/output 경로 직접 지정 (또는 sys.argv 사용 유지 가능)
+src = Path("hotpotQA/graph_v1.gexf")
+dst = Path("hotpotQA/graph_v1_processed.gexf")
 
-    src, dst = map(Path, sys.argv[1:])
-    if not src.exists():
-        print(f"❌  input file not found: {src}")
-        sys.exit(1)
+if not src.exists():
+    print(f"❌  input file not found: {src}")
+    sys.exit(1)
 
-    print(f"📖  loading graph: {src}")
-    graph = nx.read_gexf(src)
+print(f"📖  loading graph: {src}")
+graph = nx.read_gexf(src)
 
-    normalize_composite_subtopics(graph)
+normalize_composite_subtopics(graph)
 
-    print(f"💾  writing graph → {dst}")
-    nx.write_gexf(graph, dst)
-    print("✅  done.")
+print(f"💾  writing graph → {dst}")
+nx.write_gexf(graph, dst)
+print("✅  done.")
