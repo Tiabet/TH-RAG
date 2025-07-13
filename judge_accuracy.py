@@ -38,9 +38,8 @@ def evaluate_alignment_single(item):
     }
 
 def main():
-    answer_data = load_json("hotpotQA/sampled_qa_100.json")
-    # response_data = load_json("hotpotQA/result/hotpot_200_v1.json")
-    response_data = load_json("LightRAG/hotpotqa_result.json")
+    answer_data = load_json("InfiniteQA/qa.json")
+    response_data = load_json("InfiniteQA/result/kgrag_v3.json")
 
     items = [(answer_data[i].get("id", i),
               answer_data[i]["query"],
@@ -53,10 +52,10 @@ def main():
         for future in tqdm(as_completed(futures), total=len(futures)):
             results.append(future.result())
 
-    with open("hotpotQA/result/hotpot_200_1_accuracy.json", "w", encoding="utf-8") as f:
+    with open("InfiniteQA/result/hybrid_hyde_accuracy.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
 
-    print("Accuracy evaluation completed and saved to hotpotQA/result/hotpot_new_4.json")
+    print("Accuracy evaluation completed and saved to InfiniteQA/result/hybrid_hyde_accuracy.json")
 
     yes_count = sum(1 for r in results
                     if str(r.get("evaluation", "")).lower().startswith("yes"))

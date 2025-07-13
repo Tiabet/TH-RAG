@@ -18,13 +18,13 @@ from Retriever_v3 import Retriever  # ← 새 구현
 # ---------------------------------------------------------------------------
 # User‑configurable paths
 # ---------------------------------------------------------------------------
-GEXF_PATH = "hotpotQA/graph_v3.gexf"
-INDEX_PATH = "hotpotQA/edge_index_v2.faiss"
-PAYLOAD_PATH = "hotpotQA/edge_payloads_v2.npy"
+GEXF_PATH = "InfiniteQA/graph_v1.gexf"
+INDEX_PATH = "InfiniteQA/edge_index_v1.faiss"
+PAYLOAD_PATH = "InfiniteQA/edge_payloads_v1.npy"
 EMBEDDING_MODEL = "text-embedding-3-small"
-OUTPUT_GEXF = "hotpotQA/test/Bronx.gexf"
+OUTPUT_GEXF = "InfiniteQA/test/10years.gexf"
 QUERY = (
-    "What was the first year a scientific journal published by an organization located in the Bronx was published?"  
+    "How many years does Pete take to complete the painting of Mrs. Bronwyn?"  
 )
 TOP_K = 10000  # FAISS edges to retrieve
 

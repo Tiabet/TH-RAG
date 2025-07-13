@@ -15,7 +15,7 @@ RANDOM_SEED = 42           # 재현성 필요 시 None 대신 정수
 # ──────────────────────────────────────────────────
 
 with open("UltraDomain/result/kgrag_new_v1.json", encoding="utf-8") as f1, \
-     open("UltraDomain/result/agriculture_lightrag_result.json", encoding="utf-8") as f2:
+     open("UltraDomain/result/agriculture_graphragglobal_general_result.json", encoding="utf-8") as f2:
     graph_results = json.load(f1)
     light_results = json.load(f2)
 
@@ -88,7 +88,7 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
 judged_results = [judged_results_tmp[i] for i in range(N)]
 
 # 저장
-out_path = "UltraDomain/result/agriculture_judged_results_v2.json"
+out_path = "UltraDomain/result/agriculture_judged_results_graphrag.json"
 with open(out_path, "w", encoding="utf-8") as f:
     json.dump(judged_results, f, indent=2, ensure_ascii=False)
 

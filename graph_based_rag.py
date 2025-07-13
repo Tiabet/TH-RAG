@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 
 # from Retriever import Retriever  # Retriever.py에 정의된 클래스
 from Retriever_v3 import Retriever  # retriever_test.py에 정의된 클래스
-from prompt.answer_v2 import ANSWER_PROMPT
+# from prompt.answer_infniteqa import ANSWER_PROMPT
+from prompt.answer_infinitechoice import ANSWER_PROMPT
 
 # 환경 변수 로드
 load_dotenv()
@@ -17,9 +18,9 @@ if not OPENAI_API_KEY:
 # 모델 및 경로 설정
 EMBED_MODEL   = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL    = os.getenv("CHAT_MODEL", "gpt-4o-mini")
-GRAPH_PATH    = os.getenv("GRAPH_PATH", "UltraDomain/graph_v7.gexf")
-INDEX_PATH    = os.getenv("INDEX_PATH", "UltraDomain/edge_index_v2.faiss")
-PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "UltraDomain/edge_payloads_v2.npy")
+GRAPH_PATH    = os.getenv("GRAPH_PATH", "InfiniteQA/graph_v1.gexf")
+INDEX_PATH    = os.getenv("INDEX_PATH", "InfiniteQA/edge_index_v1.faiss")
+PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "InfiniteQA/edge_payloads_v1.npy")
 
 class GraphRAG:
     def __init__(
@@ -58,7 +59,7 @@ class GraphRAG:
     def answer(self, query: str) -> str:
         # topic_infos = extract_topics_subtopics(query, self.client)
         # Retriever로부터 entity_sentences와 faiss_results 얻기
-        outputs = self.retriever.retrieve(query, top_k=300)  # query 인자 추가
+        outputs = self.retriever.retrieve(query, top_k=50)  # query 인자 추가
         entity_sentences = outputs.get("entity_sentences", {})
         faiss_results = outputs.get("faiss_results", [])
 
