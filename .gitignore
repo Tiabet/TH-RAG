@@ -202,3 +202,5 @@ cython_debug/
 DB/
 hotpotQA/
 UltraDomain/
+InfinityQA/
+InfiniteChoice/
