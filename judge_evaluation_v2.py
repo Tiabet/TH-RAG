@@ -6,16 +6,23 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from tqdm import tqdm
 from prompt.evaluation import EVALUATION_PROPMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
+from dotenv import load_dotenv
 
+load_dotenv()
 # ────────────────────── 설정 ──────────────────────
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# client = OpenAI(api_key=OPENAI_API_KEY)
+client = OpenAI(api_key=GEMINI_API_KEY,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
 MAX_WORKERS = 6            # 스레드 개수(네트워크·API 한도에 맞춰 조절)
 RANDOM_SEED = 42           # 재현성 필요 시 None 대신 정수
+# model_name = "gpt-4o-mini"  # 사용할 모델 이름
+model_name = "gemini-2.5-flash"  # 사용할 모델 이름
 # ──────────────────────────────────────────────────
 
 with open("UltraDomain/result/kgrag_new_v1.json", encoding="utf-8") as f1, \
-     open("UltraDomain/result/agriculture_graphragglobal_general_result.json", encoding="utf-8") as f2:
+     open("UltraDomain/result/agriculture_hyde_result.json", encoding="utf-8") as f2:
     graph_results = json.load(f1)
     light_results = json.load(f2)
 
@@ -48,7 +55,7 @@ def judge_one(idx: int, g_answer: dict, l_answer: dict) -> tuple[int, dict]:
 
     prompt = EVALUATION_PROPMPT.format(query=query, answer1=answer1, answer2=answer2)
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=  model_name,
         messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
@@ -88,7 +95,7 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
 judged_results = [judged_results_tmp[i] for i in range(N)]
 
 # 저장
-out_path = "UltraDomain/result/agriculture_judged_results_graphrag.json"
+out_path = "UltraDomain/result/agriculture_judged_results_hyde.json"
 with open(out_path, "w", encoding="utf-8") as f:
     json.dump(judged_results, f, indent=2, ensure_ascii=False)
 

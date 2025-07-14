@@ -4,7 +4,7 @@ import os
 
 # Load JSON data
 
-input_file = 'InfiniteChoice/graph_v1.json'
+input_file = 'hotpotQA/graph_v4.json'
 with open(input_file, 'r', encoding='utf-8') as f:
     data = json.load(f)
 

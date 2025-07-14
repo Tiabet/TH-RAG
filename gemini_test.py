@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # API 키 불러오기
-api_key = os.getenv("GOOGLE_API_KEY")
+api_key = os.getenv("GEMINI_API_KEY")
 
 # API 키 설정
 genai.configure(api_key=api_key)

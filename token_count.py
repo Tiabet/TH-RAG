@@ -28,7 +28,7 @@ encoding = tiktoken.encoding_for_model("gpt-4")
 # print(f"총 토큰 길이: {token_count}")
 
 # 읽을 파일 경로
-file_path = "InfiniteQA/infiniteqa_unique_contexts.txt"  # 여기에 너의 실제 .txt 파일 경로 넣어
+file_path = "hotpotQA/contexts_distractor_1000.txt"  # 여기에 너의 실제 .txt 파일 경로 넣어
 
 # 파일에서 텍스트 읽기
 with open(file_path, "r", encoding="utf-8") as f:

@@ -3,7 +3,7 @@ import json
 from collections import Counter
 
 # 평가 결과 불러오기
-with open("UltraDomain/result/agriculture_judged_results_naive.json", encoding="utf-8") as f:
+with open("UltraDomain/result/agriculture_judged_results_hyde.json", encoding="utf-8") as f:
     data = json.load(f)
 
 categories = ["Comprehensiveness", "Diversity", "Empowerment", "Overall Winner"]
@@ -37,7 +37,7 @@ x = range(len(labels))
 bar_width = 0.35
 fig, ax = plt.subplots()
 ax.bar(x, kgrag_pct, width=bar_width, label='KG-RAG', color='blue')
-ax.bar([i + bar_width for i in x], lightrag_pct, width=bar_width, label='Naive', color='orange')
+ax.bar([i + bar_width for i in x], lightrag_pct, width=bar_width, label='HyDE', color='orange')
 
 # 퍼센트 텍스트
 for i in x:
@@ -47,7 +47,7 @@ for i in x:
 # 설정
 ax.set_xlabel("Evaluation Criteria")
 ax.set_ylabel("Winning Percentage (%)")
-ax.set_title("KG-RAG vs Naive Evaluation Results (agriculture)")
+ax.set_title("KG-RAG vs hyde Evaluation Results (agriculture)")
 ax.set_xticks([i + bar_width / 2 for i in x])
 ax.set_xticklabels(labels)
 ax.legend()

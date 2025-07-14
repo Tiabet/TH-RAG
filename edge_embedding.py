@@ -7,6 +7,10 @@ from typing import List, Tuple, Dict, Set
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from openai import OpenAI
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 if "SSL_CERT_FILE" in os.environ:
     print("⚠️ Removing problematic SSL_CERT_FILE:", os.environ["SSL_CERT_FILE"])
@@ -15,11 +19,12 @@ if "SSL_CERT_FILE" in os.environ:
 Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
 # === Configuration ===
-GEXF_PATH       = "InfiniteChoice/graph_v1.gexf"
+GEXF_PATH       = "hotpotQA/graph_v4.gexf"
 EMBEDDING_MODEL = "text-embedding-3-small"
-INDEX_PATH      = "InfiniteChoice/edge_index_v1.faiss"
-PAYLOAD_PATH    = "InfiniteChoice/edge_payloads_v1.npy"
-MAX_WORKERS     = 30
+# EMBEDDING_MODEL = "gemini-embedding-exp-03-07"  # 더 큰 모델을 사용하여 임베딩 품질 향상
+INDEX_PATH      = "hotpotQA/edge_index_v4.faiss"
+PAYLOAD_PATH    = "hotpotQA/edge_payloads_v4.npy"
+MAX_WORKERS     = 50
 
 # OpenAI API 키 확인
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -41,6 +46,7 @@ class EdgeEmbedderFAISS:
         # Load graph and initialize
         self.graph = nx.read_gexf(gexf_path)
         self.embedding_model = embedding_model
+        # self.openai = OpenAI(api_key=openai_api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
         self.openai = OpenAI(api_key=openai_api_key)
         self.index_path = index_path
         self.payload_path = payload_path

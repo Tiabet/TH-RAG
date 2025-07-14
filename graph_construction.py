@@ -7,6 +7,7 @@ import openai
 import tiktoken
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
+# from prompt.extract_graph_expanded import EXTRACTION_PROMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
 from prompt.extract_graph import EXTRACTION_PROMPT
 # from prompt.normal_extract_graph import EXTRACTION_PROMPT
 
@@ -16,11 +17,13 @@ if "SSL_CERT_FILE" in os.environ:
 
 # ==== 설정 ====
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-INPUT_FILES = ["InfiniteChoice/unique_contexts.txt"]
-OUTPUT_FILE = "InfiniteChoice/graph_v1.json"
-MODEL_NAME = "gpt-4o-mini"
+INPUT_FILES = ["hotpotQA/contexts_distractor_1000.txt"]
+OUTPUT_FILE = "hotpotQA/graph_v5.json"
+# MODEL_NAME = "gpt-4o-mini"
+MODEL_NAME = "gemini-2.0-flash"  # 사용할 모델 이름
 MAX_TOKENS = 1200
 OVERLAP = 100
 MAX_WORKERS = 50
@@ -49,15 +52,26 @@ def call_model(client: openai.OpenAI, model: str, chunk: str, index: int) -> dic
                 {"role": "user", "content": prompt_filled},
             ],
             temperature=0,
+            response_format={"type": "json_object"}
         )
-        return json.loads(response.choices[0].message.content.strip())
+        # print(response.choices[0].message.content.strip())
+        data = json.loads(response.choices[0].message.content.strip())
+        if isinstance(data, list):            # 결과가 트리플 리스트인 경우
+            for item in data:
+                item["chunk_id"] = index
+        elif isinstance(data, dict):         # 결과가 딕셔너리인 경우
+            data["chunk_id"] = index
+
+        return data
+        
     except Exception as e:
         return {"error": str(e), "chunk_index": index}
 
 # ==== 전체 텍스트 로딩 및 청크 생성 ====
 texts = [Path(p).read_text(encoding="utf-8") for p in INPUT_FILES]
 full_text = "\n".join(texts)
-chunks = chunk_text(full_text, MAX_TOKENS, OVERLAP, MODEL_NAME)
+# chunks = chunk_text(full_text, MAX_TOKENS, OVERLAP, MODEL_NAME)
+chunks = chunk_text(full_text, MAX_TOKENS, OVERLAP, "gpt-4o-mini")
 
 # ==== 이전 결과 불러오기 ====
 if Path(OUTPUT_FILE).exists():
@@ -76,7 +90,8 @@ pending_indices = [i for i, r in enumerate(results) if r is None or "error" in r
 print(f"🕐 Remaining chunks to process: {len(pending_indices)}")
 
 # ==== 모델 호출 ====
-client = openai.OpenAI()
+client = openai.OpenAI(api_key = GEMINI_API_KEY,
+                       base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
 
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     futures = {

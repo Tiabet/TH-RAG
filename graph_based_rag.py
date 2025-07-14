@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # from Retriever import Retriever  # Retriever.py에 정의된 클래스
 from Retriever_v3 import Retriever  # retriever_test.py에 정의된 클래스
 # from prompt.answer_infniteqa import ANSWER_PROMPT
-from prompt.answer_infinitechoice import ANSWER_PROMPT
+from prompt.answer_infiniteqa import ANSWER_PROMPT
 
 # 환경 변수 로드
 load_dotenv()
@@ -18,9 +18,9 @@ if not OPENAI_API_KEY:
 # 모델 및 경로 설정
 EMBED_MODEL   = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL    = os.getenv("CHAT_MODEL", "gpt-4o-mini")
-GRAPH_PATH    = os.getenv("GRAPH_PATH", "InfiniteQA/graph_v1.gexf")
-INDEX_PATH    = os.getenv("INDEX_PATH", "InfiniteQA/edge_index_v1.faiss")
-PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "InfiniteQA/edge_payloads_v1.npy")
+GRAPH_PATH    = os.getenv("GRAPH_PATH", "MultihopRAG/graph_v1.gexf")
+INDEX_PATH    = os.getenv("INDEX_PATH", "MultihopRAG/edge_index_v1.faiss")
+PAYLOAD_PATH  = os.getenv("PAYLOAD_PATH", "MultihopRAG/edge_payloads_v1.npy")
 
 class GraphRAG:
     def __init__(
