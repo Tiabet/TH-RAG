@@ -19,8 +19,8 @@ def load_q2a(path: str) -> dict:
             for item in data}
 
 def main(
-    ref_file="MultihopRAG/qa.json",
-    hyp_file="MultihopRAG/result/kgrag_v1.json",
+    ref_file="hotpotQA/sampled_qa_100.json",
+    hyp_file="hotpotQA/result2/kgrag_v2_100.json",
 ):
 
     ref = load_q2a(ref_file)

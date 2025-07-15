@@ -4,19 +4,42 @@ import os
 
 # Load JSON data
 
-input_file = 'hotpotQA/graph_v4.json'
+input_file = 'hotpotQA/graph_v1.json'
 with open(input_file, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
-# Flatten and filter entries (triples of length 3)
-entries = [
-    item for sublist in data if isinstance(sublist, list)
-    for item in sublist
-    if isinstance(item, dict)
-    and 'triple' in item
-    and isinstance(item['triple'], list)
-    and len(item['triple']) == 3
-]
+# # Flatten and filter entries (triples of length 3)
+# entries = [
+#     item for sublist in data if isinstance(sublist, list)
+#     for item in sublist
+#     if isinstance(item, dict)
+#     and 'triple' in item
+#     and isinstance(item['triple'], list)
+#     and len(item['triple']) == 3
+# ]
+
+def is_valid(item: dict) -> bool:
+    return (
+        isinstance(item, dict)
+        and "triple" in item and isinstance(item["triple"], list) and len(item["triple"]) == 3
+        and "subject" in item and "object" in item
+    )
+
+entries = []
+
+# ── Case A: 최상위가 dict 하나 ──
+if isinstance(data, dict) and "triples" in data:
+    entries.extend([item for item in data["triples"] if is_valid(item)])
+
+# ── Case B: 최상위가 list ──
+elif isinstance(data, list):
+    for block in data:
+        if isinstance(block, dict) and "triples" in block:
+            entries.extend([item for item in block["triples"] if is_valid(item)])
+
+print(f"✅ usable triples: {len(entries)}")
+if not entries:
+    raise ValueError("No valid triples found—check JSON structure.")
 
 # Create undirected graph (or DiGraph if direction matters)
 G = nx.Graph()

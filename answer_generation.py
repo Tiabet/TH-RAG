@@ -1,12 +1,13 @@
 import json
-from graph_based_rag import GraphRAG
+# from graph_based_rag import GraphRAG
+from graph_based_rag_chunks import GraphRAG  # Import the updated class
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
 # 입력/출력 경로
-input_path = "MultihopRAG/qa_1000.json"
-output_path = "MultihopRAG/result/kgrag_1000.json"
+input_path = "hotpotQA/sampled_qa_200_v2.json"
+output_path = "hotpotQA/result2/kgrag_v2_200.json"
 temp_output_path = output_path.replace(".json", "_temp.json")
 
 # (1) 결과 디렉터리 없으면 만들기 ─ 가장 먼저!
@@ -27,12 +28,14 @@ def process(index_query):
     idx, item = index_query
     query = item.get("query", "")
     try:
-        answer = rag.answer(query)
+        answer, spent, tokens = rag.answer(query)
         print(answer)
     except Exception as e:
         answer = f"[Error] {e}"
+        spent  = 0.0
+        tokens = 0
     
-    result = {"query": query, "result": answer}
+    result = {"query": query, "result": answer, "time": spent, "context_token": tokens}
     return idx, result
 
 # 병렬 처리
@@ -51,6 +54,18 @@ with ThreadPoolExecutor(max_workers=10) as executor:
             with open(temp_output_path, 'w', encoding='utf-8') as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
             print(f"[Temp Save] {completed} items saved to {temp_output_path}")
+
+# 평균 소요 시간 및 토큰 수 계산
+valid_items = [it for it in output_data if it and not it["result"].startswith("[Error]")]
+
+if valid_items:
+    avg_time   = sum(it["time"]        for it in valid_items) / len(valid_items)
+    avg_tokens = sum(it["context_token"] for it in valid_items) / len(valid_items)
+
+    print(f"\n📊 평균 소요 시간: {avg_time:.2f}초")
+    print(f"📊 평균 컨텍스트 토큰 수: {avg_tokens:.1f}개")
+else:
+    print("⚠️  평균 계산을 위한 유효한 결과가 없습니다.")
 
 # 최종 저장
 with open(output_path, 'w', encoding='utf-8') as f:

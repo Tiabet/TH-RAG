@@ -7,8 +7,8 @@ import openai
 import tiktoken
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-# from prompt.extract_graph_expanded import EXTRACTION_PROMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
-from prompt.extract_graph import EXTRACTION_PROMPT
+from prompt.extract_graph_expanded import EXTRACTION_PROMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
+# from prompt.extract_graph import EXTRACTION_PROMPT
 # from prompt.normal_extract_graph import EXTRACTION_PROMPT
 
 if "SSL_CERT_FILE" in os.environ:
@@ -17,13 +17,13 @@ if "SSL_CERT_FILE" in os.environ:
 
 # ==== 설정 ====
 load_dotenv()
-# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 INPUT_FILES = ["hotpotQA/contexts_distractor_1000.txt"]
-OUTPUT_FILE = "hotpotQA/graph_v5.json"
-# MODEL_NAME = "gpt-4o-mini"
-MODEL_NAME = "gemini-2.0-flash"  # 사용할 모델 이름
+OUTPUT_FILE = "hotpotQA/graph_v6.json"
+MODEL_NAME = "gpt-4o-mini"
+# MODEL_NAME = "gemini-2.0-flash"  # 사용할 모델 이름
 MAX_TOKENS = 1200
 OVERLAP = 100
 MAX_WORKERS = 50
@@ -90,8 +90,9 @@ pending_indices = [i for i, r in enumerate(results) if r is None or "error" in r
 print(f"🕐 Remaining chunks to process: {len(pending_indices)}")
 
 # ==== 모델 호출 ====
-client = openai.OpenAI(api_key = GEMINI_API_KEY,
-                       base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+# client = openai.OpenAI(api_key = GEMINI_API_KEY,
+#                        base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     futures = {

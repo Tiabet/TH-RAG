@@ -13,7 +13,6 @@ MODEL_NAME = "gemini-2.5-flash"
 #                        base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-print(f"Using Gemini API Key: {GEMINI_API_KEY}")
 client = openai.OpenAI(api_key=GEMINI_API_KEY,
                        base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
 
@@ -46,8 +45,8 @@ def evaluate_alignment_single(item):
     }
 
 def main():
-    answer_data = load_json("MultihopRAG/qa_1000.json")
-    response_data = load_json("MultihopRAG/result/kgrag_1000.json")
+    answer_data = load_json("hotpotQA/sampled_qa_200_v2.json")
+    response_data = load_json("hotpotQA/result2/kgrag_v2_200.json")
 
     items = [(answer_data[i].get("id", i),
               answer_data[i]["query"],
@@ -60,7 +59,7 @@ def main():
         for future in tqdm(as_completed(futures), total=len(futures)):
             results.append(future.result())
 
-    with open("MultihopRAG/result/kgrag_accuracy_v1.json", "w", encoding="utf-8") as f:
+    with open("hotpotQA/result2/kgrag_accuracy_v1.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     print(f"Results saved to MultihopRAG/result/kgrag_accuracy_v1.json")
 

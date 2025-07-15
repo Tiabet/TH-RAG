@@ -19,18 +19,24 @@ if "SSL_CERT_FILE" in os.environ:
 Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
 # === Configuration ===
-GEXF_PATH       = "hotpotQA/graph_v4.gexf"
+GEXF_PATH       = "hotpotQA/graph_v1.gexf"
 EMBEDDING_MODEL = "text-embedding-3-small"
 # EMBEDDING_MODEL = "gemini-embedding-exp-03-07"  # 더 큰 모델을 사용하여 임베딩 품질 향상
-INDEX_PATH      = "hotpotQA/edge_index_v4.faiss"
-PAYLOAD_PATH    = "hotpotQA/edge_payloads_v4.npy"
-MAX_WORKERS     = 50
+INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
+PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
+MAX_WORKERS     = 30
 
 # OpenAI API 키 확인
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("환경 변수 OPENAI_API_KEY를 설정해야 합니다.")
 
+import re
+
+def _normalize_sentence(s: str) -> str:
+    """대소문자·공백·구두점 최소 정규화."""
+    s = re.sub(r"\s+", " ", s.strip())   # 줄바꿈·다중 공백 → 1칸
+    return s.lower()
 
 class EdgeEmbedderFAISS:
     """Embed each edge sentence separately into FAISS index with corresponding payloads."""
@@ -66,6 +72,7 @@ class EdgeEmbedderFAISS:
         self.index: faiss.IndexFlatIP
         self.payloads: List[Dict] = []
 
+
     def _embed(self, text: str) -> np.ndarray:
         resp = self.openai.embeddings.create(
             input=[text], model=self.embedding_model
@@ -78,9 +85,16 @@ class EdgeEmbedderFAISS:
         dim = self._embed("test").shape[0]
         self.index = faiss.IndexFlatIP(dim)
 
+        
+        seen: set[str] = set()           # ✅ 이미 임베딩한 문장 저장
+        vecs, payloads = [], []
+
         # Worker function to embed and generate payload
         def worker(edge: Edge):
             eid, src, dst, lbl, sent = edge
+            key = _normalize_sentence(sent)
+            if key in seen:
+                return None
             emb = self._embed(sent)
             payload = {
                 "edge_id": eid,
@@ -94,17 +108,15 @@ class EdgeEmbedderFAISS:
         # Embed all edge sentences in parallel
         results = []
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            for emb, payload in tqdm(
-                executor.map(worker, self.edges),
-                total=len(self.edges),
-                desc="Embedding sentences (individually)"
-            ):
-                results.append((emb, payload))
+            for res in tqdm(executor.map(worker, self.edges), total=len(self.edges), desc="Embedding edges"):
+                if res is None:
+                    continue
+                emb, payload = res
+                vecs.append(emb)
+                payloads.append(payload)
 
-        # Build FAISS index and save
-        vecs = np.vstack([r[0] for r in results])
-        self.payloads = [r[1] for r in results]
-        self.index.add(vecs)
+        self.payloads = payloads
+        self.index.add(np.vstack(vecs))
 
         faiss.write_index(self.index, self.index_path)
         np.save(self.payload_path, np.array(self.payloads, dtype=object))
