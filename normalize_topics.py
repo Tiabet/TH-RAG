@@ -1,17 +1,4 @@
 #!/usr/bin/env python3
-"""
-normalize_subtopics.py  —  composite subtopic 분해·병합 스크립트
-
-지원 구분자 (대/소문자 무시):
-  • "/"          (slash)
-  • " and "      (and)
-  • " & "        (ampersand)
-  • "," 또는 ", and "
-
-동일 의미 라벨 판정은 `normalize_text()`를 통해
-  소문자화 → 관사 제거 → 구두점 제거 → 공백 정리  후 비교합니다.
-"""
-
 from __future__ import annotations
 
 import re
@@ -64,7 +51,7 @@ def build_norm_label_index(G: nx.Graph) -> Dict[str, str]:
     """정규화 라벨 → 노드 ID"""
     idx: Dict[str, str] = {}
     for nid, data in G.nodes(data=True):
-        if data.get("type") != "subtopic":
+        if data.get("type") == "entity":
             continue
         norm = normalize_text(data.get("label", ""))
         if norm and norm not in idx:
@@ -81,7 +68,7 @@ def normalize_composite_subtopics(G: nx.Graph) -> None:
     targets = [
         (nid, data["label"])
         for nid, data in G.nodes(data=True)
-        if data.get("type") == "subtopic"
+        if data.get("type") != "entity" # 엔티티 제외
         and DELIM_REGEX.search(str(data.get("label", "")))
     ]
 

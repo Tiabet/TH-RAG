@@ -10,7 +10,6 @@ Provide a clear and accurate response. Carefully review and verify the retrieved
 If you are unsure of the answer, just say so. Do not fabricate information. 
 Do not include details not supported by the provided evidence.
 
-
 ---Target response length and format---
 
 Multiple Paragraphs
