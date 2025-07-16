@@ -16,11 +16,11 @@ if not OPENAI_API_KEY:
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
 
-GEXF_PATH       = "hotpotQA/graph_v1.gexf"
-CHUNKS_PATH     = "hotpotQA/chunks_v1.txt"
-GRAPH_JSON_PATH = "hotpotQA/graph_v1.json"
-INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
-PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
+GEXF_PATH       = "UltraDomain/graph_v1.gexf"
+CHUNKS_PATH     = "UltraDomain/chunks_v1.txt"
+GRAPH_JSON_PATH = "UltraDomain/graph_v2.json"
+INDEX_PATH      = "UltraDomain/edge_index_v2.faiss"
+PAYLOAD_PATH    = "UltraDomain/edge_payloads_v2.npy"
 # ─────────────────────────────────────────────────────────────────────
 
 class GraphRAG:

@@ -1,55 +1,106 @@
 import json
 import networkx as nx
-import pandas as pd
+import os
 
 # Load JSON data
-with open('DB/graph.json', 'r') as f:
+
+input_file = 'hotpotQA/graph_v1.json'
+with open(input_file, 'r', encoding='utf-8') as f:
     data = json.load(f)
 
-# Flatten and filter entries (triples of length 3)
-entries = [
-    item for sublist in data if isinstance(sublist, list)
-    for item in sublist
-    if isinstance(item, dict)
-    and 'triple' in item
-    and isinstance(item['triple'], list)
-    and len(item['triple']) == 3
-]
+# # Flatten and filter entries (triples of length 3)
+# entries = [
+#     item for sublist in data if isinstance(sublist, list)
+#     for item in sublist
+#     if isinstance(item, dict)
+#     and 'triple' in item
+#     and isinstance(item['triple'], list)
+#     and len(item['triple']) == 3
+# ]
 
-# Create directed graph
-G = nx.DiGraph()
+def is_valid(item: dict) -> bool:
+    return (
+        isinstance(item, dict)
+        and "triple" in item and isinstance(item["triple"], list) and len(item["triple"]) == 3
+        and "subject" in item and "object" in item
+    )
+
+entries = []
+
+# ── Case A: 최상위가 dict 하나 ──
+if isinstance(data, dict) and "triples" in data:
+    entries.extend([item for item in data["triples"] if is_valid(item)])
+
+# ── Case B: 최상위가 list ──
+elif isinstance(data, list):
+    for block in data:
+        if isinstance(block, dict) and "triples" in block:
+            entries.extend([item for item in block["triples"] if is_valid(item)])
+
+print(f"✅ usable triples: {len(entries)}")
+if not entries:
+    raise ValueError("No valid triples found—check JSON structure.")
+
+# Create undirected graph (or DiGraph if direction matters)
+G = nx.Graph()
 
 for entry in entries:
     subj, pred, obj = entry['triple']
-    subj_st, subj_mt = entry['subject']['subtopic'], entry['subject']['main_topic']
-    obj_st, obj_mt = entry['object']['subtopic'], entry['object']['main_topic']
-    
-    # Add nodes with types
-    G.add_node(subj, label=subj, type='entity')
-    G.add_node(subj_st, label=subj_st, type='subtopic')
-    G.add_node(subj_mt, label=subj_mt, type='topic')
-    G.add_node(obj, label=obj, type='entity')
-    G.add_node(obj_st, label=obj_st, type='subtopic')
-    G.add_node(obj_mt, label=obj_mt, type='topic')
-    
-    # Add edges: entity -> subtopic -> topic, and the predicate edge
-    G.add_edge(subj, subj_st, label='has_subtopic', relation_type='subtopic_relation')
-    G.add_edge(subj_st, subj_mt, label='has_topic', relation_type='topic_relation')
-    G.add_edge(obj, obj_st, label='has_subtopic', relation_type='subtopic_relation')
-    G.add_edge(obj_st, obj_mt, label='has_topic', relation_type='topic_relation')
-    G.add_edge(subj, obj, label=pred, relation_type='predicate_relation')
+    subj, pred, obj = subj.lower(), pred.lower(), obj.lower()
+    subj_st = entry['subject']['subtopic'].lower()
+    subj_mt = entry['subject']['main_topic'].lower()
+    obj_st = entry['object']['subtopic'].lower()
+    obj_mt = entry['object']['main_topic'].lower()
+    raw_sentence = entry.get('sentence', '')
+    if isinstance(raw_sentence, list) and len(raw_sentence) > 0:
+        sentence = raw_sentence[0].strip()
+    elif isinstance(raw_sentence, str):
+        sentence = raw_sentence.strip()
+
+    # Define node IDs with prefixes
+    subj_node = f"entity_{subj}"
+    subj_st_node = f"subtopic_{subj_st}"
+    subj_mt_node = f"topic_{subj_mt}"
+    obj_node = f"entity_{obj}"
+    obj_st_node = f"subtopic_{obj_st}"
+    obj_mt_node = f"topic_{obj_mt}"
+
+    # Add nodes with attributes
+    for node, label, typ in [
+        (subj_node, subj, 'entity'), (subj_st_node, subj_st, 'subtopic'), (subj_mt_node, subj_mt, 'topic'),
+        (obj_node, obj, 'entity'), (obj_st_node, obj_st, 'subtopic'), (obj_mt_node, obj_mt, 'topic')
+    ]:
+        G.add_node(node, label=label.lower(), type=typ)
+
+    # Hierarchical edges
+    G.add_edge(subj_node, subj_st_node, label='has_subtopic', relation_type='subtopic_relation')
+    G.add_edge(subj_st_node, subj_mt_node, label='has_topic', relation_type='topic_relation')
+    G.add_edge(obj_node, obj_st_node, label='has_subtopic', relation_type='subtopic_relation')
+    G.add_edge(obj_st_node, obj_mt_node, label='has_topic', relation_type='topic_relation')
+
+    # Predicate edge with merging
+    if G.has_edge(subj_node, obj_node):
+        existing = G[subj_node][obj_node]
+        existing['label'] = f"{existing['label']} / {pred}" if pred not in existing['label'] else existing['label']
+        existing['sentence'] = f"{existing['sentence']} / {sentence}" if sentence and sentence not in existing['sentence'] else existing['sentence']
+        existing['weight'] = existing.get('weight', 1) + 1
+    else:
+        G.add_edge(subj_node, obj_node,
+                   label=pred.lower(),
+                   relation_type='predicate_relation',
+                   sentence=sentence,
+                   weight=1)
+
+print("=== Edge Attributes Check ===")
+for u, v, d in G.edges(data=True):
+    for key, value in d.items():
+        if isinstance(value, tuple):
+            print(f"[TUPLE] Edge {u} - {v} has tuple in '{key}': {value}")
+        elif not isinstance(value, (str, int, float)):
+            print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
 
 # Save as GEXF for Gephi
-nx.write_gexf(G, 'graph_v2.gexf')
-
-# # Also save CSVs for optional import
-# nodes = [{'id': n, 'label': attr.get('label', ''), 'type': attr.get('type', '')} for n, attr in G.nodes(data=True)]
-# edges = [{'source': u, 'target': v, 'label': attr.get('label', '')} for u, v, attr in G.edges(data=True)]
-
-# pd.DataFrame(nodes).to_csv('/mnt/data/nodes_extended.csv', index=False)
-# pd.DataFrame(edges).to_csv('/mnt/data/edges_extended.csv', index=False)
-
-print("Files saved:")
-print(" - graph_v2.gexf")
-# print(" - nodes_extended.csv")
-# print(" - edges_extended.csv")
+output_dir = input_file.replace('.json', '.gexf')
+nx.write_gexf(G, output_dir)
+    
+print("File saved:", output_dir)

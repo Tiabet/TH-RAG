@@ -1,0 +1,2 @@
+
+EVALUATION_PROMPT = """---Role---\nYou are a helpful assistant evaluating the **{title}** of a generated response.\n\n---Question---\n{question}\n\n---Golden Answers---\n{answers}\n\n---Evaluation Goal---\nEvaluate **{goal}** using a **0–10 integer scale**.\n\n{rubric}\n\nOutput format:\n<score>\nyour_score_here (an integer from 0 to 10)\n</score>\n<explanation>\nExplain why you gave this score.\n</explanation>\n\n---Generation to be Evaluated---\n{generation}"""

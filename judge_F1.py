@@ -4,9 +4,9 @@ import json, re, string
 from collections import Counter
 from pathlib import Path
 
-# 하드코딩된 파일 경로
-GOLD_PATH = Path("hotpotQA/sampled_qa_200_v2.json")
-PRED_PATH = Path("hotpotQA/result2/kgrag_v2_200.json")
+# ---------- 하드코딩된 파일 경로 ----------
+GOLD_PATH = Path("MultihopRAG/qa_1000.json")
+PRED_PATH = Path("MultihopRAG/result/kgrag_1000.json")
 
 # ---------- text normalization ----------
 def normalize(s: str) -> str:
@@ -47,29 +47,44 @@ def main():
     pred = load_pairs(PRED_PATH, "result")
 
     em_sum = f1_sum = precision_sum = recall_sum = 0
+    ### --- NEW --- ###
+    contain_correct = 0          # Accuracy용 카운터
+    ### ------------- ###
     missing = 0
 
     for q, gold_ans in gold.items():
         if q not in pred:
             missing += 1
             continue
-        em, f1_val, prec, rec = compute_metrics(pred[q], gold_ans)
+        pred_ans = pred[q]
+        em, f1_val, prec, rec = compute_metrics(pred_ans, gold_ans)
         em_sum += em
         f1_sum += f1_val
         precision_sum += prec
         recall_sum += rec
+        ### --- NEW --- ###
+        # 정답 문자열이 예측 안에 '포함'되어 있으면 correct
+        if normalize(gold_ans) in normalize(pred_ans):
+            contain_correct += 1
+        ### ------------- ###
 
     compared = len(gold) - missing
-    em = em_sum / compared if compared else 0
-    f1 = f1_sum / compared if compared else 0
-    precision = precision_sum / compared if compared else 0
-    recall = recall_sum / compared if compared else 0
+    em         = em_sum         / compared if compared else 0
+    f1         = f1_sum         / compared if compared else 0
+    precision  = precision_sum  / compared if compared else 0
+    recall     = recall_sum     / compared if compared else 0
+    ### --- NEW --- ###
+    accuracy   = contain_correct / compared if compared else 0
+    ### ------------- ###
 
     print(f"#items compared : {compared}/{len(gold)} (missing={missing})")
     print(f"Exact‑Match     : {em:.3f}")
     print(f"F1              : {f1:.3f}")
     print(f"Precision       : {precision:.3f}")
     print(f"Recall          : {recall:.3f}")
+    ### --- NEW --- ###
+    print(f"Accuracy        : {accuracy:.3f}  (gold answer ⊆ prediction)")
+    ### ------------- ###
 
 if __name__ == "__main__":
     main()

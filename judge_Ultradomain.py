@@ -5,8 +5,10 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from tqdm import tqdm
-from prompt.evaluation import EVALUATION_PROPMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
+from prompt.evaluation import EVALUATION_PROPMPT 
 from dotenv import load_dotenv
+import matplotlib.pyplot as plt
+from collections import Counter
 
 load_dotenv()
 # ────────────────────── 설정 ──────────────────────
@@ -34,6 +36,9 @@ if RANDOM_SEED is not None:
 random.shuffle(indices)
 kg_first_set = set(indices[: N // 2])
 
+my_rag = "KGRAG"
+other_rag = "LightRAG"
+
 def extract_json_from_response(response_text: str) -> str:
     """```json ...``` 또는 JSON 본문만 추출"""
     if response_text.strip().startswith("```"):
@@ -48,10 +53,10 @@ def judge_one(idx: int, g_answer: dict, l_answer: dict) -> tuple[int, dict]:
 
     if idx in kg_first_set:
         answer1, answer2 = g_answer["result"], l_answer["result"]
-        answer1_model, answer2_model = "KG-RAG", "LightRAG"
+        answer1_model, answer2_model = my_rag, other_rag
     else:
         answer1, answer2 = l_answer["result"], g_answer["result"]
-        answer1_model, answer2_model = "LightRAG", "KG-RAG"
+        answer1_model, answer2_model = other_rag, my_rag
 
     prompt = EVALUATION_PROPMPT.format(query=query, answer1=answer1, answer2=answer2)
     response = client.chat.completions.create(
@@ -100,3 +105,55 @@ with open(out_path, "w", encoding="utf-8") as f:
     json.dump(judged_results, f, indent=2, ensure_ascii=False)
 
 print(f"완료! 결과가 {out_path} 에 저장되었습니다.")
+
+# 평가 결과 불러오기
+with open("UltraDomain/result/agriculture_judged_results_hyde.json", encoding="utf-8") as f:
+    data = json.load(f)
+
+categories = ["Comprehensiveness", "Diversity", "Empowerment", "Overall Winner"]
+model_scores = {
+    my_rag : Counter(),
+    other_rag : Counter()
+}
+
+# 결과 집계
+for item in data:
+    if "error" in item:
+        continue
+    for cat in categories:
+        winner = item.get(cat, {}).get("Winner")
+        if winner == "Answer 1":
+            model_scores[item["answer1_model"]][cat] += 1
+        elif winner == "Answer 2":
+            model_scores[item["answer2_model"]][cat] += 1
+
+# 시각화 데이터 정리
+labels = categories
+kgrag_values = [model_scores[my_rag][cat] for cat in labels]
+lightrag_values = [model_scores[other_rag][cat] for cat in labels]
+totals = [k + l for k, l in zip(kgrag_values, lightrag_values)]
+
+kgrag_pct = [k / t * 100 if t > 0 else 0 for k, t in zip(kgrag_values, totals)]
+lightrag_pct = [l / t * 100 if t > 0 else 0 for l, t in zip(lightrag_values, totals)]
+
+# 막대 그래프
+x = range(len(labels))
+bar_width = 0.35
+fig, ax = plt.subplots()
+ax.bar(x, kgrag_pct, width=bar_width, label=other_rag, color='blue')
+ax.bar([i + bar_width for i in x], lightrag_pct, width=bar_width, label=other_rag, color='orange')
+
+# 퍼센트 텍스트
+for i in x:
+    ax.text(i, kgrag_pct[i] + 1, f"{kgrag_pct[i]:.1f}%", ha='center')
+    ax.text(i + bar_width, lightrag_pct[i] + 1, f"{lightrag_pct[i]:.1f}%", ha='center')
+
+# 설정
+ax.set_xlabel("Evaluation Criteria")
+ax.set_ylabel("Winning Percentage (%)")
+ax.set_title("KG-RAG vs hyde Evaluation Results (agriculture)")
+ax.set_xticks([i + bar_width / 2 for i in x])
+ax.set_xticklabels(labels)
+ax.legend()
+plt.tight_layout()
+plt.show()
