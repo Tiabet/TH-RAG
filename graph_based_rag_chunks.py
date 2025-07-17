@@ -3,7 +3,7 @@ from typing import List, Dict
 from dotenv import load_dotenv
 
 from Retriever_v4 import Retriever        # ← 청크 기반 버전
-from prompt.answer_infiniteqa import ANSWER_PROMPT
+from prompt.answer_short import ANSWER_PROMPT
 import time
 import tiktoken
 
