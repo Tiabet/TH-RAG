@@ -6,28 +6,43 @@ import string
 import sys
 from pathlib import Path
 from typing import Dict
+import spacy
+import inflect
 
 import networkx as nx
 
 # ──────────────────────────────────────────
 # 텍스트 정규화
 # ──────────────────────────────────────────
+# 필요한 리소스 로드
+nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
+inflector = inflect.engine()
+
 def normalize_text(text: str) -> str:
-    def remove_articles(s: str) -> str:
-        return re.sub(r"\b(a|an|the)\b", " ", s)
-
-    def remove_punctuation(s: str) -> str:
-        return "".join(c for c in s if c not in string.punctuation)
-
-    def white_space_fix(s: str) -> str:
-        return " ".join(s.split())
-
     text = text.lower()
-    text = remove_articles(text)
-    text = remove_punctuation(text)
-    text = white_space_fix(text)
-    return text
 
+    # ① 괄호 후치 제거 → e.g., "battery (chemistry)" → "battery"
+    text = re.sub(r"\s*\(.*?\)$", "", text)
+
+    # ② 하이픈 접두사/접미사 정리 → e.g., "non-smoker" → "smoker"
+    text = re.sub(r"^(ex|pre|non)-", "", text)
+    text = re.sub(r"-(like|type|based)$", "", text)
+
+    # ③ 특수문자 제거 → e.g., "battery!" → "battery"
+    text = re.sub(r"[^a-z0-9\s]", "", text)
+
+    # ④ 공백 정리
+    text = " ".join(text.split())
+
+    # ⑤ spaCy 기반 어근화 (lemmatization)
+    doc = nlp(text)
+    lemmas = [token.lemma_ for token in doc if not token.is_space]
+
+    # ⑥ 복수형 처리 → e.g., "companies" → "company"
+    singulars = [inflector.singular_noun(w) or w for w in lemmas]
+
+    # ⑦ 최종 정리
+    return " ".join(singulars).strip()
 
 def snake(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
