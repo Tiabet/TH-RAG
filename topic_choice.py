@@ -14,6 +14,9 @@ from openai import OpenAI
 # Local prompt template
 from prompt.topic_choice import TOPIC_CHOICE_PROMPT
 
+from dotenv import load_dotenv
+
+load_dotenv()
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------

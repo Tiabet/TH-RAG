@@ -18,6 +18,11 @@ import networkx as nx
 from openai import OpenAI
 from prompt.subtopic_choice import SUBTOPIC_CHOICE_PROMPT
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
 DEFAULT_MODEL = "gpt-4o-mini"
 MAX_RETRIES = 5        # ← configurable global
 RETRY_BACKOFF = 0.2      # seconds between retries
@@ -44,7 +49,7 @@ def choose_subtopics_for_topic(
     graph: nx.Graph,
     client: OpenAI,
     model: str = DEFAULT_MODEL,
-    max_subtopics: int = 50,
+    max_subtopics: int = 25,
 ) -> List[str]:
     """Return up to ``max_subtopics`` relevant subtopic **labels** for *topic_nid*.
 

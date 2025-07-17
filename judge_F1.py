@@ -73,7 +73,6 @@ def main():
     f1         = f1_sum         / compared if compared else 0
     precision  = precision_sum  / compared if compared else 0
     recall     = recall_sum     / compared if compared else 0
-    ### --- NEW --- ###
     accuracy   = contain_correct / compared if compared else 0
     ### ------------- ###
 
@@ -82,7 +81,6 @@ def main():
     print(f"F1              : {f1:.3f}")
     print(f"Precision       : {precision:.3f}")
     print(f"Recall          : {recall:.3f}")
-    ### --- NEW --- ###
     print(f"Accuracy        : {accuracy:.3f}  (gold answer ⊆ prediction)")
     ### ------------- ###
 

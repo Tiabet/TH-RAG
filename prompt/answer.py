@@ -7,11 +7,8 @@ Generate a concise response based on the following information and follow Respon
 ---Target response length and format---
 Multiple Paragraphs
 
----Conversation History---
-{history}
-
 ---Information---
-{context_data}
+{{context}}
 
 ---Response Rules---
 - Use markdown formatting with appropriate section headings
@@ -20,4 +17,6 @@ Multiple Paragraphs
 - If you don't know the answer, just say so.
 - Do not make anything up. Do not include information not provided by the Infromation.
 
+---Query---
+{{question}}
 """

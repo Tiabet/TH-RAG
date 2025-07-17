@@ -2,7 +2,7 @@ import os, openai, networkx as nx
 from typing import List, Dict
 from dotenv import load_dotenv
 
-from Retriever_v4 import Retriever        # ← 청크 기반 버전
+from Retriever_v5 import Retriever        # ← 청크 기반 버전
 from prompt.answer_short import ANSWER_PROMPT
 import time
 import tiktoken
@@ -16,12 +16,12 @@ if not OPENAI_API_KEY:
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
 
-GEXF_PATH       = "UltraDomain/graph_v1.gexf"
-CHUNKS_PATH     = "UltraDomain/chunks_v1.txt"
-GRAPH_JSON_PATH = "UltraDomain/graph_v2.json"
-INDEX_PATH      = "UltraDomain/edge_index_v2.faiss"
-PAYLOAD_PATH    = "UltraDomain/edge_payloads_v2.npy"
-# ─────────────────────────────────────────────────────────────────────
+GEXF_PATH       = "hotpotQA/graph_v1.gexf"
+CHUNKS_PATH     = "hotpotQA/chunks_v1.txt"
+GRAPH_JSON_PATH = "hotpotQA/graph_v1.json"
+INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
+PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
+# hotpotQA
 
 class GraphRAG:
     def __init__(
@@ -51,11 +51,10 @@ class GraphRAG:
 
         self.chat_model = chat_model
 
-    # ------------------------------------------------------------------
     def compose_context(self, chunks: List[str], edges_meta: List[Dict]) -> str:
         """
-        chunks : 검색된 청크 원문 리스트
-        edges_meta : 문장/점수 등 메타 (원하면 프롬프트에 포함)
+        chunks : top_k2개의 청크 본문
+        edges_meta : top_k1개의 전체 엣지 정보
         """
         parts: List[str] = []
 
@@ -63,18 +62,30 @@ class GraphRAG:
         for i, chk in enumerate(chunks, 1):
             parts.append(f"[Chunk {i}] {chk}")
 
-        # 2) (옵션) 문장 메타 – 프롬프트 디버그용
-        for hit in edges_meta:
-            parts.append(f"(Edge {hit['edge_id']} score={hit['score']:.3f}): {hit['sentence']}")
+        # 2) 전체 edge 정보 (50개) 포함
+        for i, hit in enumerate(edges_meta, 1):
+            source = hit.get("source", "?")
+            label  = hit.get("label", "?")
+            target = hit.get("target", "?")
+            score  = hit.get("score", 0.0)
+            rank   = hit.get("rank", "?")
+            sent   = hit.get("sentence", "")
+            cid    = hit.get("chunk_id", "?")
+
+            parts.append(
+                f"(Edge {i} | rank={rank} score={score:.3f} chunk_id={cid})\n"
+                f"[{source}] --{label}→ [{target}]\n"
+                f"{sent}"
+            )
 
         return "\n".join(parts)
 
     # ------------------------------------------------------------------
-    def answer(self, query: str, top_k: int = 10) -> str:
+    def answer(self, query: str, top_k1: int = 50, top_k2 : int = 10) -> str:
         # Retriever 실행 → chunks + edges
         
         start_time = time.time()
-        out = self.retriever.retrieve(query, top_k=top_k)
+        out = self.retriever.retrieve(query, top_k1=top_k1, top_k2=top_k2)
         end_time = time.time()
         spent_time = end_time - start_time
         chunks: List[str]       = out.get("chunks", [])
@@ -105,6 +116,6 @@ class GraphRAG:
 if __name__ == "__main__":
     rag = GraphRAG()
     q = 'Which American comedian born on March 21, 1962, appeared in the movie "Sleepless in Seattle"?'
-    ans = rag.answer(q, top_k=5)
+    ans = rag.answer(q, top_k1=50, top_k2=10)
     print("\n=== Answer ===")
     print(ans)

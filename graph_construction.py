@@ -8,7 +8,7 @@ import openai
 import tiktoken
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from prompt.extract_graph_expanded import EXTRACTION_PROMPT
+from prompt.extract_graph import EXTRACTION_PROMPT
 
 if "SSL_CERT_FILE" in os.environ:
     print("⚠️ Removing problematic SSL_CERT_FILE:", os.environ["SSL_CERT_FILE"])

@@ -1,5 +1,5 @@
 import json
-from graph_based_rag import GraphRAG
+from graph_based_rag_chunks import GraphRAG
 # from graph_based_rag_chunks import GraphRAG  # Import the updated class
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -9,8 +9,8 @@ import os
 input_path = "UltraDomain/qa.json"
 output_path = "UltraDomain/result/kgrag_original.json"
 temp_output_path = output_path.replace(".json", "_temp.json")
-TOP_K = 50
-
+TOP_K1 = 50
+TOP_K2 = 10
 # (1) 결과 디렉터리 없으면 만들기 ─ 가장 먼저!
 os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
@@ -29,7 +29,7 @@ def process(index_query):
     idx, item = index_query
     query = item.get("query", "")
     try:
-        answer = rag.answer(query, TOP_K)
+        answer = rag.answer(query, top_k1=TOP_K1, top_k2=TOP_K2)
         print(answer)
     except Exception as e:
         answer = f"[Error] {e}"

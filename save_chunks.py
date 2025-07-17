@@ -1,7 +1,7 @@
 # save_chunks.py
 # --- 하드코딩 설정 ---
-TXT_PATH   = "hotpotQA/Tmp3/contexts_distractor_1000.txt"   # 원본 텍스트
-OUT_PATH   = "hotpotQA/chunks_v1.txt"                 # 청크 저장 파일
+TXT_PATH   = "MultihopRAG/contexts.txt"   # 원본 텍스트
+OUT_PATH   = "MultihopRAG/chunks_v1.txt"                 # 청크 저장 파일
 MODEL_NAME = "gpt-4o-mini"                            # tiktoken 모델
 MAX_TOKENS = 1200                                     # 청크 토큰 수
 OVERLAP    = 100                                      # 청크 간 겹침 토큰 수
