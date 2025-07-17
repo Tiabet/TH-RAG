@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 import tiktoken
-file_path = "MultihopRAG/contexts.txt"  # 여기에 너의 실제 .txt 파일 경로 넣어
+file_path = "UltraDomain/Agriculture/contexts.txt"  # 여기에 너의 실제 .txt 파일 경로 넣어
 
 # 파일에서 텍스트 읽기
 with open(file_path, "r", encoding="utf-8") as f:

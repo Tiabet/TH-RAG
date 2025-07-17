@@ -1,5 +1,5 @@
 import json
-from graph_based_rag import GraphRAG
+from graph_based_rag_chunks import GraphRAG
 # from graph_based_rag_chunks import GraphRAG  # Import the updated class
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -43,7 +43,7 @@ def process(index_query):
 
 # 병렬 처리
 completed = 0
-save_every = 1000
+save_every = 10
 
 with ThreadPoolExecutor(max_workers=10) as executor:
     futures = [executor.submit(process, (i, item)) for i, item in enumerate(questions)]
@@ -56,7 +56,7 @@ with ThreadPoolExecutor(max_workers=10) as executor:
         if completed % save_every == 0:
             with open(temp_output_path, 'w', encoding='utf-8') as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
-            print(f"[Temp Save] {completed} items saved to {temp_output_path}")
+            # print(f"[Temp Save] {completed} items saved to {temp_output_path}")
 
 # 평균 소요 시간 및 토큰 수 계산
 valid_items = [it for it in output_data if it and not it["result"].startswith("[Error]")]

@@ -21,7 +21,6 @@ Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 # === Configuration ===
 GEXF_PATH       = "hotpotQA/graph_v1.gexf"
 EMBEDDING_MODEL = "text-embedding-3-small"
-# EMBEDDING_MODEL = "gemini-embedding-exp-03-07"  # 더 큰 모델을 사용하여 임베딩 품질 향상
 INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
 PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
 MAX_WORKERS     = 30
@@ -39,7 +38,6 @@ def _normalize_sentence(s: str) -> str:
     return s.lower()
 
 class EdgeEmbedderFAISS:
-    """Embed each edge sentence separately into FAISS index with corresponding payloads."""
 
     def __init__(
         self,
@@ -177,11 +175,3 @@ embedder = EdgeEmbedderFAISS(
 if not os.path.exists(INDEX_PATH):
     embedder.build_index()
     print("FAISS index & payloads 생성 완료.")
-# else:
-#     embedder.load_index()
-#     print("FAISS index & payloads 로드 완료.")
-
-# # 예시 검색
-# results = embedder.search("Bee is good")
-# for edge in results:
-#     print(edge)

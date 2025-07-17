@@ -1,140 +1,151 @@
 #!/usr/bin/env python3
+"""
+Graph preprocessing – topics & subtopics only
+-------------------------------------------
+* **Split composite labels** into atomic subtopics.
+* **Normalise labels** (lower‑case, lemmatised, singular).
+* **Relabel IDs _only for topic/subtopic_ nodes** so that
+    topic_sports  ➜  topic_sport
+    subtopic_sports teams  ➜  subtopic_sport_team
+* **Merge duplicates**: if the target ID already exists, the current node is deleted and all its incident edges are rewired to the target.
+* Entity nodes are left untouched.
+"""
+
 from __future__ import annotations
 
 import re
-import string
 import sys
 from pathlib import Path
-from typing import Dict
-import spacy
+from typing import Dict, List
+
 import inflect
-
 import networkx as nx
+import spacy
 
 # ──────────────────────────────────────────
-# 텍스트 정규화
+# Resources
 # ──────────────────────────────────────────
-# 필요한 리소스 로드
 nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
 inflector = inflect.engine()
 
+# I/O paths
+src = Path("hotpotQA/graph_v1.gexf")
+dst = Path("hotpotQA/graph_v1_processed.gexf")
+
+# ──────────────────────────────────────────
+# Helpers
+# ──────────────────────────────────────────
+
 def normalize_text(text: str) -> str:
+    """Lower‑case, strip brackets/punct, lemmatise, singularise."""
     text = text.lower()
-
-    # ① 괄호 후치 제거 → e.g., "battery (chemistry)" → "battery"
-    text = re.sub(r"\s*\(.*?\)$", "", text)
-
-    # ② 하이픈 접두사/접미사 정리 → e.g., "non-smoker" → "smoker"
-    text = re.sub(r"^(ex|pre|non)-", "", text)
-    text = re.sub(r"-(like|type|based)$", "", text)
-
-    # ③ 특수문자 제거 → e.g., "battery!" → "battery"
-    text = re.sub(r"[^a-z0-9\s]", "", text)
-
-    # ④ 공백 정리
-    text = " ".join(text.split())
-
-    # ⑤ spaCy 기반 어근화 (lemmatization)
+    text = re.sub(r"\s*\(.*?\)$", "", text)          # trailing parentheses
+    text = re.sub(r"^(ex|pre|non)-", "", text)          # prefixes
+    text = re.sub(r"-(like|type|based)$", "", text)    # suffixes
+    text = re.sub(r"[^a-z0-9\s]", "", text)           # non‑alnum
+    text = " ".join(text.split())                        # collapse ws
     doc = nlp(text)
-    lemmas = [token.lemma_ for token in doc if not token.is_space]
-
-    # ⑥ 복수형 처리 → e.g., "companies" → "company"
+    lemmas = [t.lemma_ for t in doc if not t.is_space]
     singulars = [inflector.singular_noun(w) or w for w in lemmas]
-
-    # ⑦ 최종 정리
     return " ".join(singulars).strip()
 
 def snake(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", s.lower()).strip("_")
 
-# ──────────────────────────────────────────
-# 구분자 패턴
-# ──────────────────────────────────────────
 DELIM_REGEX = re.compile(
-    r"\s*/\s*"          # slash
-    r"|\s+and\s+"       # and
-    r"|\s*&\s*"         # &
-    r"|\s*,\s*"         # comma
-    r"|\s*,\s*and\s+",  # , and
-    flags=re.I,
+    r"\s*/\s*|\s+and\s+|\s*&\s*|\s*,\s*|\s*,\s*and\s+",
+    re.I
 )
 
 # ──────────────────────────────────────────
-# 보조 인덱스
+# 1) Split composite labels
 # ──────────────────────────────────────────
-def build_norm_label_index(G: nx.Graph) -> Dict[str, str]:
-    """정규화 라벨 → 노드 ID"""
-    idx: Dict[str, str] = {}
-    for nid, data in G.nodes(data=True):
+
+def split_composites(G: nx.Graph) -> None:
+    """Break composite topic/subtopic labels (A & B) into separate nodes."""
+    for nid, data in list(G.nodes(data=True)):
         if data.get("type") == "entity":
             continue
-        norm = normalize_text(data.get("label", ""))
-        if norm and norm not in idx:
-            idx[norm] = nid
-    return idx
-
-# ──────────────────────────────────────────
-# 메인 변환
-# ──────────────────────────────────────────
-def normalize_composite_subtopics(G: nx.Graph) -> None:
-    label2nid = build_norm_label_index(G)
-
-    # 대상 노드 수집
-    targets = [
-        (nid, data["label"])
-        for nid, data in G.nodes(data=True)
-        if data.get("type") != "entity" # 엔티티 제외
-        and DELIM_REGEX.search(str(data.get("label", "")))
-    ]
-
-    for orig_nid, raw_label in targets:
-        parts = [p.strip() for p in DELIM_REGEX.split(raw_label) if p.strip()]
+        label = str(data.get("label", ""))
+        if not DELIM_REGEX.search(label):
+            continue
+        parts = [p.strip() for p in DELIM_REGEX.split(label) if p.strip()]
         if len(parts) < 2:
             continue
-
-        incident_edges = list(G.edges(orig_nid, data=True))
-
+        incident = list(G.edges(nid, data=True))
         for part in parts:
             norm = normalize_text(part)
             if not norm:
                 continue
+            prefix = "topic" if data.get("type") == "topic" else "subtopic"
+            new_id = f"{prefix}_{snake(norm)}"
+            if new_id not in G:
+                attrs = data.copy()
+                attrs["label_raw"] = part
+                attrs["label"] = norm
+                G.add_node(new_id, **attrs)
+            for u, v, edata in incident:
+                nbr = v if u == nid else u
+                if not G.has_edge(new_id, nbr):
+                    G.add_edge(new_id, nbr, **edata)
+        G.remove_node(nid)
 
-            # 1) 기존 노드 재사용 or 신규 생성
-            if norm in label2nid:
-                dest = label2nid[norm]
-            else:
-                dest = f"subtopic_{snake(norm)}"
-                if dest not in G:
-                    attrs = G.nodes[orig_nid].copy()
-                    attrs["label"] = part          # 원본 그대로 표시
-                    G.add_node(dest, **attrs)
-                label2nid[norm] = dest
+# ──────────────────────────────────────────
+# 2) Normalise labels + merge duplicates with ID rewiring
+# ──────────────────────────────────────────
 
-            # 2) 엣지 복사 (중복 방지)
-            for u, v, edata in incident_edges:
-                nbr = v if u == orig_nid else u
-                if not G.has_edge(dest, nbr):
-                    G.add_edge(dest, nbr, **edata)
+def normalise_and_merge(G: nx.Graph) -> None:
+    """Operate only on topic/subtopic nodes, relabel IDs & merge duplicates."""
+    for nid in list(G.nodes):
+        data = G.nodes[nid]
+        ntype = data.get("type")
+        if ntype not in {"topic", "subtopic"}:
+            continue
 
-        # 3) 복합 노드 삭제
-        G.remove_node(orig_nid)
+        raw_label = str(data.get("label", "")) or str(nid)
+        norm = normalize_text(raw_label)
+        data["label_raw"] = raw_label
+        data["label"] = norm
 
-        for i, (u, v, data) in enumerate(G.edges(data=True)):
-            data['id'] = str(i)
+        target_id = f"{ntype}_{snake(norm)}"
+        if target_id == nid:
+            continue  # already standardised
 
-# input/output 경로 직접 지정 (또는 sys.argv 사용 유지 가능)
-src = Path("hotpotQA/graph_v1.gexf")
-dst = Path("hotpotQA/graph_v1_processed.gexf")
+        if target_id in G:
+            # merge: redirect edges then drop current node
+            for nbr, edata in list(G[nid].items()):
+                if nbr == target_id:
+                    continue  # avoid self‑loop
+                if not G.has_edge(target_id, nbr):
+                    G.add_edge(target_id, nbr, **edata)
+            G.remove_node(nid)
+        else:
+            # simple relabel
+            nx.relabel_nodes(G, {nid: target_id}, copy=False)
+
+# ──────────────────────────────────────────
+# 3) Re‑index edge IDs
+# ──────────────────────────────────────────
+
+def reset_edge_ids(G: nx.Graph) -> None:
+    for i, (_, _, data) in enumerate(G.edges(data=True)):
+        data["id"] = str(i)
+
+# ──────────────────────────────────────────
+# Main
+# ──────────────────────────────────────────
 
 if not src.exists():
     print(f"❌  input file not found: {src}")
     sys.exit(1)
 
 print(f"📖  loading graph: {src}")
-graph = nx.read_gexf(src)
+G = nx.read_gexf(src)
 
-normalize_composite_subtopics(graph)
+split_composites(G)
+normalise_and_merge(G)
+reset_edge_ids(G)
 
 print(f"💾  writing graph → {dst}")
-nx.write_gexf(graph, dst)
+nx.write_gexf(G, dst)
 print("✅  done.")
