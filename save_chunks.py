@@ -1,14 +1,19 @@
-# save_chunks.py
-# --- 하드코딩 설정 ---
-TXT_PATH   = "MultihopRAG/contexts.txt"   # 원본 텍스트
-OUT_PATH   = "MultihopRAG/chunks_v1.txt"                 # 청크 저장 파일
+from pathlib import Path
+import tiktoken
+import argparse
+
+parser = argparse.ArgumentParser(description="Split text into overlapping token chunks.")
+parser.add_argument("--input", "-i", type=str, required=True, help="Path to input .txt file")
+parser.add_argument("--output", "-o", type=str, required=True, help="Path to save chunked .txt file")
+args = parser.parse_args()
+TXT_PATH   = args.input
+OUT_PATH   = args.output
+     # 청크 저장 파일
 MODEL_NAME = "gpt-4o-mini"                            # tiktoken 모델
 MAX_TOKENS = 1200                                     # 청크 토큰 수
 OVERLAP    = 100                                      # 청크 간 겹침 토큰 수
 # ----------------------
 
-from pathlib import Path
-import tiktoken
 
 # 청크 함수
 def chunk_text(text: str, max_tokens: int, overlap: int, model: str):

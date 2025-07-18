@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Graph preprocessing – topics & subtopics only
 -------------------------------------------
@@ -16,7 +15,7 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List
+import argparse
 
 import inflect
 import networkx as nx
@@ -28,9 +27,14 @@ import spacy
 nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
 inflector = inflect.engine()
 
-# I/O paths
-src = Path("hotpotQA/graph_v1.gexf")
-dst = Path("hotpotQA/graph_v1_processed.gexf")
+# argparse for input/output paths with optional-style flags
+parser = argparse.ArgumentParser(description="Process and normalize topic/subtopic graph nodes.")
+parser.add_argument("--input", "-i", type=str, required=True, help="Path to input GEXF file")
+parser.add_argument("--output", "-o", type=str, required=True, help="Path to output GEXF file")
+args = parser.parse_args()
+
+src = Path(args.input)
+dst = Path(args.output)
 
 # ──────────────────────────────────────────
 # Helpers

@@ -2,7 +2,7 @@ import os, openai, networkx as nx
 from typing import List, Dict
 from dotenv import load_dotenv
 
-from Retriever_v5 import Retriever        # ← 청크 기반 버전
+from Retriever import Retriever        # ← 청크 기반 버전
 from prompt.answer_short import ANSWER_PROMPT
 import time
 import tiktoken
@@ -17,7 +17,7 @@ EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
 
 GEXF_PATH       = "hotpotQA/graph_v1.gexf"
-CHUNKS_PATH     = "hotpotQA/chunks_v1.txt"
+CHUNKS_PATH     = "hotpotQA/chunks.txt"
 GRAPH_JSON_PATH = "hotpotQA/graph_v1.json"
 INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
 PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"

@@ -5,8 +5,8 @@ from collections import Counter
 from pathlib import Path
 
 # ---------- 하드코딩된 파일 경로 ----------
-GOLD_PATH = Path("hotpotQA/sampled_qa_200_v2.json")
-PRED_PATH = Path("hotpotQA/result2/kgrag_v2_200.json")
+PRED_PATH = Path("Result/Ours/hotpot_result_temp.json")
+GOLD_PATH = Path("hotpotQA/qa.json")
 
 # ---------- text normalization ----------
 def normalize(s: str) -> str:

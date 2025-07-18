@@ -1,106 +1,145 @@
 import json
 import networkx as nx
 import os
+import html
+import re
+import argparse
 
-# Load JSON data
+# ─────────────────────────────────────────────────────────────────────
+# ✅ 외부에서 import 가능한 유틸 함수들
+# ─────────────────────────────────────────────────────────────────────
 
-input_file = 'UltraDomain/Legal/graph_v1.json'
-with open(input_file, 'r', encoding='utf-8') as f:
-    data = json.load(f)
+def clean_id(text: str) -> str:
+    """노드 ID용: 공백, 특수문자 제거 및 소문자화"""
+    if not isinstance(text, str):
+        text = str(text)
+    text = text.lower()
+    return re.sub(r"[^\w\-\.]", "_", text)
 
-# # Flatten and filter entries (triples of length 3)
-# entries = [
-#     item for sublist in data if isinstance(sublist, list)
-#     for item in sublist
-#     if isinstance(item, dict)
-#     and 'triple' in item
-#     and isinstance(item['triple'], list)
-#     and len(item['triple']) == 3
-# ]
+def clean_text_for_xml(text: str) -> str:
+    """GEXF-safe 텍스트로 변환 (제어문자 제거 + HTML escape)"""
+    if not isinstance(text, str):
+        return ""
+    # 제어문자 제거 (유니코드 허용 범위에 맞게)
+    text = ''.join(ch for ch in text if 0x20 <= ord(ch) <= 0xD7FF or 0xE000 <= ord(ch) <= 0xFFFD)
+    # &, <, > 등 HTML escape
+    text = html.escape(text)
+    return text.strip()
 
 def is_valid(item: dict) -> bool:
+    """triplet 형식이 맞는지 검증"""
     return (
         isinstance(item, dict)
         and "triple" in item and isinstance(item["triple"], list) and len(item["triple"]) == 3
         and "subject" in item and "object" in item
     )
 
-entries = []
+# ─────────────────────────────────────────────────────────────────────
+# ✅ 메인 실행부: JSON → GEXF 변환
+# ─────────────────────────────────────────────────────────────────────
 
-# ── Case A: 최상위가 dict 하나 ──
-if isinstance(data, dict) and "triples" in data:
-    entries.extend([item for item in data["triples"] if is_valid(item)])
+def convert_json_to_gexf(input_file: str, output_file: str = None):
+    with open(input_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
 
-# ── Case B: 최상위가 list ──
-elif isinstance(data, list):
-    for block in data:
-        if isinstance(block, dict) and "triples" in block:
-            entries.extend([item for item in block["triples"] if is_valid(item)])
+    entries = []
 
-print(f"✅ usable triples: {len(entries)}")
-if not entries:
-    raise ValueError("No valid triples found—check JSON structure.")
+    # Case A: 단일 dict 구조
+    if isinstance(data, dict) and "triples" in data:
+        entries.extend([item for item in data["triples"] if is_valid(item)])
 
-# Create undirected graph (or DiGraph if direction matters)
-G = nx.Graph()
+    # Case B: 블록 리스트 구조
+    elif isinstance(data, list):
+        for block in data:
+            if isinstance(block, dict) and "triples" in block:
+                entries.extend([item for item in block["triples"] if is_valid(item)])
 
-for entry in entries:
-    subj, pred, obj = entry['triple']
-    subj, pred, obj = subj.lower(), pred.lower(), obj.lower()
-    subj_st = entry['subject']['subtopic'].lower()
-    subj_mt = entry['subject']['main_topic'].lower()
-    obj_st = entry['object']['subtopic'].lower()
-    obj_mt = entry['object']['main_topic'].lower()
-    raw_sentence = entry.get('sentence', '')
-    if isinstance(raw_sentence, list) and len(raw_sentence) > 0:
-        sentence = raw_sentence[0].strip()
-    elif isinstance(raw_sentence, str):
-        sentence = raw_sentence.strip()
+    print(f"✅ usable triples: {len(entries)}")
+    if not entries:
+        raise ValueError("No valid triples found—check JSON structure.")
 
-    # Define node IDs with prefixes
-    subj_node = f"entity_{subj}"
-    subj_st_node = f"subtopic_{subj_st}"
-    subj_mt_node = f"topic_{subj_mt}"
-    obj_node = f"entity_{obj}"
-    obj_st_node = f"subtopic_{obj_st}"
-    obj_mt_node = f"topic_{obj_mt}"
+    # 그래프 생성
+    G = nx.Graph()
 
-    # Add nodes with attributes
-    for node, label, typ in [
-        (subj_node, subj, 'entity'), (subj_st_node, subj_st, 'subtopic'), (subj_mt_node, subj_mt, 'topic'),
-        (obj_node, obj, 'entity'), (obj_st_node, obj_st, 'subtopic'), (obj_mt_node, obj_mt, 'topic')
-    ]:
-        G.add_node(node, label=label.lower(), type=typ)
+    for entry in entries:
+        subj, pred, obj = entry['triple']
+        subj, pred, obj = subj.lower(), pred.lower(), obj.lower()
+        subj_st = entry['subject']['subtopic'].lower()
+        subj_mt = entry['subject']['main_topic'].lower()
+        obj_st = entry['object']['subtopic'].lower()
+        obj_mt = entry['object']['main_topic'].lower()
+        raw_sentence = entry.get('sentence', '')
+        if isinstance(raw_sentence, list) and len(raw_sentence) > 0:
+            sentence = raw_sentence[0].strip()
+        elif isinstance(raw_sentence, str):
+            sentence = raw_sentence.strip()
+        else:
+            sentence = ""
 
-    # Hierarchical edges
-    G.add_edge(subj_node, subj_st_node, label='has_subtopic', relation_type='subtopic_relation')
-    G.add_edge(subj_st_node, subj_mt_node, label='has_topic', relation_type='topic_relation')
-    G.add_edge(obj_node, obj_st_node, label='has_subtopic', relation_type='subtopic_relation')
-    G.add_edge(obj_st_node, obj_mt_node, label='has_topic', relation_type='topic_relation')
+        # 노드 ID 생성
+        subj_node     = f"entity_{clean_id(subj)}"
+        subj_st_node  = f"subtopic_{clean_id(subj_st)}"
+        subj_mt_node  = f"topic_{clean_id(subj_mt)}"
+        obj_node      = f"entity_{clean_id(obj)}"
+        obj_st_node   = f"subtopic_{clean_id(obj_st)}"
+        obj_mt_node   = f"topic_{clean_id(obj_mt)}"
 
-    # Predicate edge with merging
-    if G.has_edge(subj_node, obj_node):
-        existing = G[subj_node][obj_node]
-        existing['label'] = f"{existing['label']} / {pred}" if pred not in existing['label'] else existing['label']
-        existing['sentence'] = f"{existing['sentence']} / {sentence}" if sentence and sentence not in existing['sentence'] else existing['sentence']
-        existing['weight'] = existing.get('weight', 1) + 1
-    else:
-        G.add_edge(subj_node, obj_node,
-                   label=pred.lower(),
-                   relation_type='predicate_relation',
-                   sentence=sentence,
-                   weight=1)
+        # 노드 추가
+        for node, label, typ in [
+            (subj_node, subj, 'entity'), (subj_st_node, subj_st, 'subtopic'), (subj_mt_node, subj_mt, 'topic'),
+            (obj_node, obj, 'entity'), (obj_st_node, obj_st, 'subtopic'), (obj_mt_node, obj_mt, 'topic')
+        ]:
+            safe_label = clean_text_for_xml(label)
+            G.add_node(node, label=safe_label.lower(), type=typ)
 
-print("=== Edge Attributes Check ===")
-for u, v, d in G.edges(data=True):
-    for key, value in d.items():
-        if isinstance(value, tuple):
-            print(f"[TUPLE] Edge {u} - {v} has tuple in '{key}': {value}")
-        elif not isinstance(value, (str, int, float)):
-            print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
+        # 계층 엣지
+        G.add_edge(subj_node, subj_st_node, label='has_subtopic', relation_type='subtopic_relation')
+        G.add_edge(subj_st_node, subj_mt_node, label='has_topic', relation_type='topic_relation')
+        G.add_edge(obj_node, obj_st_node, label='has_subtopic', relation_type='subtopic_relation')
+        G.add_edge(obj_st_node, obj_mt_node, label='has_topic', relation_type='topic_relation')
 
-# Save as GEXF for Gephi
-output_dir = input_file.replace('.json', '.gexf')
-nx.write_gexf(G, output_dir)
-    
-print("File saved:", output_dir)
+        # 문장 및 predicate 엣지
+        safe_sentence = clean_text_for_xml(sentence)
+        safe_pred     = clean_text_for_xml(pred.lower())
+
+        if G.has_edge(subj_node, obj_node):
+            existing = G[subj_node][obj_node]
+            if safe_pred and safe_pred not in existing['label']:
+                existing['label'] += f" / {safe_pred}"
+            if safe_sentence and safe_sentence not in existing['sentence']:
+                existing['sentence'] += f" / {safe_sentence}"
+            existing['weight'] = existing.get('weight', 1) + 1
+        else:
+            G.add_edge(
+                subj_node,
+                obj_node,
+                label=safe_pred,
+                relation_type='predicate_relation',
+                sentence=safe_sentence,
+                weight=1
+            )
+
+    # 디버그: 엣지 속성 검사
+    print("=== Edge Attributes Check ===")
+    for u, v, d in G.edges(data=True):
+        for key, value in d.items():
+            if isinstance(value, tuple):
+                print(f"[TUPLE] Edge {u} - {v} has tuple in '{key}': {value}")
+            elif not isinstance(value, (str, int, float)):
+                print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
+
+    # 저장
+    output_file = output_file or input_file.replace('.json', '.gexf')
+    nx.write_gexf(G, output_file)
+    print("📁 File saved:", output_file)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# ✅ CLI에서 직접 실행할 경우만 작동
+# ─────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Convert JSON triples to GEXF graph.")
+    parser.add_argument("input_file", type=str, help="Path to input JSON file (e.g., graph_v1.json)")
+    args = parser.parse_args()
+    convert_json_to_gexf(args.input_file)

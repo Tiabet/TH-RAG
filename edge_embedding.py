@@ -8,6 +8,10 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from openai import OpenAI
 from dotenv import load_dotenv
+import argparse
+
+EMBEDDING_MODEL = "text-embedding-3-small"
+MAX_WORKERS     = 10
 
 # Load environment variables
 load_dotenv()
@@ -19,11 +23,6 @@ if "SSL_CERT_FILE" in os.environ:
 Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
 # === Configuration ===
-GEXF_PATH       = "hotpotQA/graph_v1.gexf"
-EMBEDDING_MODEL = "text-embedding-3-small"
-INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
-PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
-MAX_WORKERS     = 30
 
 # OpenAI API 키 확인
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -164,14 +163,28 @@ class EdgeEmbedderFAISS:
             return results
 
 
-embedder = EdgeEmbedderFAISS(
-    gexf_path=GEXF_PATH,
-    embedding_model=EMBEDDING_MODEL,
-    openai_api_key=OPENAI_API_KEY,
-    index_path=INDEX_PATH,
-    payload_path=PAYLOAD_PATH,
-)
+# ── 명령줄에서 직접 실행될 경우만 ────────────────────────────────────────
+if __name__ == "__main__":
+    import argparse
 
-if not os.path.exists(INDEX_PATH):
-    embedder.build_index()
-    print("FAISS index & payloads 생성 완료.")
+    parser = argparse.ArgumentParser(description="Build or load FAISS edge index from graph.")
+    parser.add_argument("--gexf", "-g", type=str, required=True, help="Path to input .gexf graph file")
+    parser.add_argument("--index", "-i", type=str, required=True, help="Path to output .faiss index file")
+    parser.add_argument("--payload", "-p", type=str, required=True, help="Path to output .npy payload file")
+    args = parser.parse_args()
+
+    GEXF_PATH = args.gexf
+    INDEX_PATH = args.index
+    PAYLOAD_PATH = args.payload
+
+    embedder = EdgeEmbedderFAISS(
+        gexf_path=GEXF_PATH,
+        embedding_model=EMBEDDING_MODEL,
+        openai_api_key=OPENAI_API_KEY,
+        index_path=INDEX_PATH,
+        payload_path=PAYLOAD_PATH,
+    )
+
+    if not os.path.exists(INDEX_PATH):
+        embedder.build_index()
+        print("FAISS index & payloads 생성 완료.")

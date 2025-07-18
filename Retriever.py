@@ -10,17 +10,18 @@ from edge_embedding import EdgeEmbedderFAISS
 from topic_choice    import choose_topics_from_graph
 from subtopic_choice import choose_subtopics_for_topic
 from dotenv import load_dotenv
+from json_to_gexf import clean_text_for_xml
 
 load_dotenv()
 
-# ---------- 하드코딩/경로 ----------
-GEXF_PATH        = "hotpotQA/graph_v1.gexf"
-CHUNKS_PATH      = "hotpotQA/chunks_v1.txt"      # 한 줄‑한 청크
-GRAPH_JSON_PATH  = "hotpotQA/graph_v1.json"      # sentence + chunk_id
-INDEX_PATH       = "hotpotQA/edge_index_v1.faiss"
-PAYLOAD_PATH     = "hotpotQA/edge_payloads_v1.npy"
-EMBEDDING_MODEL  = "text-embedding-3-small"
-OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY")
+# # ---------- 하드코딩/경로 ----------
+# GEXF_PATH        = "hotpotQA/graph_v1.gexf"
+# CHUNKS_PATH      = "hotpotQA/chunks_v1.txt"      # 한 줄‑한 청크
+# GRAPH_JSON_PATH  = "hotpotQA/graph_v1.json"      # sentence + chunk_id
+# INDEX_PATH       = "hotpotQA/edge_index_v1.faiss"
+# PAYLOAD_PATH     = "hotpotQA/edge_payloads_v1.npy"
+# EMBEDDING_MODEL  = "text-embedding-3-small"
+# OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY")
 # -----------------------------------
 
 # ── util ──────────────────────────────────────────────────────────────
@@ -29,17 +30,6 @@ def normalize(s: str) -> str:
         return " ".join(re.sub(r"\s+", " ", s.strip()).split()).lower()
 
 def build_sent2chunk(path: str) -> Dict[str, int]:
-    """
-    JSON 구조:
-    [
-      { "triples":[ {...}, {...} ], "chunk_id": 0 },
-      { "triples":[ {...}, ... ],   "chunk_id": 1 },
-      ...
-    ]
-    ⇒  sentence → chunk_id 매핑 반환
-    """
-    import json, re
-
 
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
@@ -56,7 +46,7 @@ def build_sent2chunk(path: str) -> Dict[str, int]:
         for item in triples:
             sent = item.get("sentence")
             if isinstance(sent, str):
-                mapping[normalize(sent)] = cid
+                mapping[normalize(clean_text_for_xml(sent))] = cid
 
     if not mapping:
         raise ValueError("❌  No sentence→chunk_id pairs found.")
@@ -142,7 +132,7 @@ class Retriever:
         seen = set()
         count = 0
         for e in edges:  # FAISS 랭킹 순서 유지
-            cid = self.sent2cid.get(normalize(e["sentence"]))
+            cid = self.sent2cid.get(normalize(clean_text_for_xml(e["sentence"])))
             if cid is not None:
                 e["chunk_id"] = cid
                 if cid not in seen:
@@ -178,23 +168,23 @@ class Retriever:
 
 
 
-if __name__ == "__main__":
-    from openai import OpenAI
+# if __name__ == "__main__":
+#     from openai import OpenAI
     
-    retriever = Retriever(
-        gexf_path=GEXF_PATH,
-        chunks_path=CHUNKS_PATH,
-        graph_json_path=GRAPH_JSON_PATH,
-        index_path=INDEX_PATH,
-        payload_path=PAYLOAD_PATH,
-        embedding_model=EMBEDDING_MODEL,
-        openai_api_key=OPENAI_API_KEY,
-        client=OpenAI(api_key=OPENAI_API_KEY),
-    )
+#     retriever = Retriever(
+#         gexf_path=GEXF_PATH,
+#         chunks_path=CHUNKS_PATH,
+#         graph_json_path=GRAPH_JSON_PATH,
+#         index_path=INDEX_PATH,
+#         payload_path=PAYLOAD_PATH,
+#         embedding_model=EMBEDDING_MODEL,
+#         openai_api_key=OPENAI_API_KEY,
+#         client=OpenAI(api_key=OPENAI_API_KEY),
+#     )
 
-    res = retriever.retrieve(
-        "In which election did Norm Coleman won to become the last republican elected as of 2017?",
-        top_k1=50,
-        top_k2=10,
-    )
-    print(res)
+#     res = retriever.retrieve(
+#         "In which election did Norm Coleman won to become the last republican elected as of 2017?",
+#         top_k1=50,
+#         top_k2=10,
+#     )
+#     print(res)
