@@ -24,8 +24,6 @@ load_dotenv()
 # OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY")
 # -----------------------------------
 
-# ── util ──────────────────────────────────────────────────────────────
-
 def normalize(s: str) -> str:
         return " ".join(re.sub(r"\s+", " ", s.strip()).split()).lower()
 
@@ -131,8 +129,18 @@ class Retriever:
         chunk_ids: List[int] = []
         seen = set()
         count = 0
+
+        def find_chunk_containing_sentence(sentence: str, chunks: List[str]) -> int | None:
+            norm_sent = normalize(sentence)
+            for idx, chunk in enumerate(chunks):
+                if norm_sent in normalize(chunk):
+                    return idx
+            return None
+
         for e in edges:  # FAISS 랭킹 순서 유지
-            cid = self.sent2cid.get(normalize(clean_text_for_xml(e["sentence"])))
+            normed = normalize(clean_text_for_xml(e["sentence"]))
+            cid = self.sent2cid.get(normed)
+
             if cid is not None:
                 e["chunk_id"] = cid
                 if cid not in seen:
@@ -140,9 +148,21 @@ class Retriever:
                     chunk_ids.append(cid)
                     count += 1
             else:
-                print(f"⚠️ unmatched sentence: {e['sentence'][:80]}…")
+                # 📌 fallback: 실제 chunk 텍스트에서 직접 찾아본다
+                fallback_cid = find_chunk_containing_sentence(e["sentence"], self.chunks)
+                if fallback_cid is not None:
+                    e["chunk_id"] = fallback_cid
+                    if fallback_cid not in seen:
+                        seen.add(fallback_cid)
+                        chunk_ids.append(fallback_cid)
+                        count += 1
+                    print(f"♻️ fallback matched: chunk {fallback_cid} for sentence {e['sentence'][:80]}…")
+                else:
+                    print(f"⚠️ unmatched sentence: {e['sentence'][:80]}…")
+
             if count == top_k2:
                 break
+
 
         chunks_text = [self.chunks[c] for c in chunk_ids]
         print(f"🗂  returning {len(chunks_text)} chunks\n")

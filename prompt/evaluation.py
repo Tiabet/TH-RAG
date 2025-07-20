@@ -1,15 +1,24 @@
-EVALUATION_PROPMPT = """
+EVALUATION_PROMPT = """
     ---Role---
     You are an expert tasked with evaluating two answers to the same question based on three criteria: **Comprehensiveness**, **Diversity**, and **Empowerment**.
 
     ---Goal---
     You will evaluate two answers to the same question based on three criteria: **Comprehensiveness**, **Diversity**, and **Empowerment**.
 
-    - **Comprehensiveness**: How much detail does the answer provide to cover all aspects and details of the question?
-    - **Diversity**: How varied and rich is the answer in providing different perspectives and insights on the question?
-    - **Empowerment**: How well does the answer help the reader understand and make informed judgments about the topic?
+    1. **Comprehensiveness**:
+        Does the answer address all key parts of the question with sufficient explanation?
+
+    2. **Diversity**:
+        Does the answer present different perspectives, nuances, or supporting ideas?
+
+    3. **Empowerment**:
+        Does the answer help the reader understand the topic better or make more informed decisions?
 
     For each criterion, choose the better answer (either Answer 1 or Answer 2) and explain why. Then, select an overall winner based on these three categories.
+
+    ---Rules---
+    - The length of the answers is not a criterion for evaluation. Focus on the quality and depth of the content provided in each answer.
+    - Longer answers are penalized if they contain unnecessary or repetitive content
 
     Here is the question: {query}
 

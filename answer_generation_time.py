@@ -1,13 +1,13 @@
 import json
-from graph_based_rag_chunks import GraphRAG
+from graph_based_rag_long import GraphRAG
 # from graph_based_rag_chunks import GraphRAG  # Import the updated class
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
 # 입력/출력 경로
-input_path = "hotpotQA/qa.json"
-output_path = "Result/Ours/hotpot_result_v2.json"
+input_path = "UltraDomain/Agriculture/qa.json"
+output_path = "Result/Ours/agriculture_result.json"
 temp_output_path = output_path.replace(".json", "_temp.json")
 
 # (1) 결과 디렉터리 없으면 만들기 ─ 가장 먼저!
@@ -43,7 +43,7 @@ def process(index_query):
 
 # 병렬 처리
 completed = 0
-save_every = 50
+save_every = 5000
 
 with ThreadPoolExecutor(max_workers=20) as executor:
     futures = [executor.submit(process, (i, item)) for i, item in enumerate(questions)]

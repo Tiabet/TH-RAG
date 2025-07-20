@@ -5,7 +5,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
 from tqdm import tqdm
-from prompt.evaluation import EVALUATION_PROPMPT 
+from prompt.evaluation import EVALUATION_PROMPT 
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 from collections import Counter
@@ -13,20 +13,21 @@ from collections import Counter
 load_dotenv()
 # ────────────────────── 설정 ──────────────────────
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# client = OpenAI(api_key=OPENAI_API_KEY)
-client = OpenAI(api_key=GEMINI_API_KEY,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
-MAX_WORKERS = 6            # 스레드 개수(네트워크·API 한도에 맞춰 조절)
+client = OpenAI(api_key=OPENAI_API_KEY)
+MAX_WORKERS = 15         # 스레드 개수(네트워크·API 한도에 맞춰 조절)
 RANDOM_SEED = 42           # 재현성 필요 시 None 대신 정수
-# model_name = "gpt-4o-mini"  # 사용할 모델 이름
-model_name = "gemini-2.5-flash"  # 사용할 모델 이름
+model_name = "gpt-4o-mini"  # 사용할 모델 이름
 # ──────────────────────────────────────────────────
 
-with open("UltraDomain/result/kgrag_new_v1.json", encoding="utf-8") as f1, \
-     open("UltraDomain/result/agriculture_hyde_result.json", encoding="utf-8") as f2:
+with open("Result/Ours/agriculture_result.json", encoding="utf-8") as f1, \
+     open("Result/LightRAG/hybrid_agriculture_result.json", encoding="utf-8") as f2:
     graph_results = json.load(f1)
     light_results = json.load(f2)
+
+out_path = "Result/Ours/agriculture_LightRAG.json"
+
+my_rag = "KGRAG"
+other_rag = "LightRAG"
 
 # answer1/answer2 위치 균등 분배
 N = len(graph_results)
@@ -36,8 +37,6 @@ if RANDOM_SEED is not None:
 random.shuffle(indices)
 kg_first_set = set(indices[: N // 2])
 
-my_rag = "KGRAG"
-other_rag = "LightRAG"
 
 def extract_json_from_response(response_text: str) -> str:
     """```json ...``` 또는 JSON 본문만 추출"""
@@ -58,7 +57,7 @@ def judge_one(idx: int, g_answer: dict, l_answer: dict) -> tuple[int, dict]:
         answer1, answer2 = l_answer["result"], g_answer["result"]
         answer1_model, answer2_model = other_rag, my_rag
 
-    prompt = EVALUATION_PROPMPT.format(query=query, answer1=answer1, answer2=answer2)
+    prompt = EVALUATION_PROMPT.format(query=query, answer1=answer1, answer2=answer2)
     response = client.chat.completions.create(
         model=  model_name,
         messages=[{"role": "user", "content": prompt}],
@@ -99,15 +98,13 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
 # 인덱스 기준으로 정렬해 리스트로 변환
 judged_results = [judged_results_tmp[i] for i in range(N)]
 
-# 저장
-out_path = "UltraDomain/result/agriculture_judged_results_hyde.json"
 with open(out_path, "w", encoding="utf-8") as f:
     json.dump(judged_results, f, indent=2, ensure_ascii=False)
 
 print(f"완료! 결과가 {out_path} 에 저장되었습니다.")
 
 # 평가 결과 불러오기
-with open("UltraDomain/result/agriculture_judged_results_hyde.json", encoding="utf-8") as f:
+with open(out_path, encoding="utf-8") as f:
     data = json.load(f)
 
 categories = ["Comprehensiveness", "Diversity", "Empowerment", "Overall Winner"]
@@ -140,7 +137,7 @@ lightrag_pct = [l / t * 100 if t > 0 else 0 for l, t in zip(lightrag_values, tot
 x = range(len(labels))
 bar_width = 0.35
 fig, ax = plt.subplots()
-ax.bar(x, kgrag_pct, width=bar_width, label=other_rag, color='blue')
+ax.bar(x, kgrag_pct, width=bar_width, label=my_rag, color='blue')
 ax.bar([i + bar_width for i in x], lightrag_pct, width=bar_width, label=other_rag, color='orange')
 
 # 퍼센트 텍스트

@@ -8,12 +8,12 @@ import tiktoken
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from openai import OpenAI
-from prompt.answer import ANSWER_PROMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
+from prompt.answer_short import ANSWER_PROMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
 
 # === Configuration ===
 CONTEXT_PATH    = 'hotpotQA/contexts.txt'
 QUESTIONS_PATH  = 'hotpotQA/questions.json'
-OUTPUT_PATH     = 'hotpotQA/naive_answers.json'
+OUTPUT_PATH     = 'Reesult/naive_answers.json'
 INDEX_PATH      = 'hotpotQA/faiss_index.bin'
 CHUNKS_PATH     = 'hotpotQA/chunks.json'
 
@@ -26,7 +26,7 @@ CHUNK_SIZE      = 1200
 CHUNK_OVERLAP   = 100
 EMBEDDING_MODEL = 'text-embedding-3-small'
 QA_MODEL        = 'gpt-4o-mini'
-MAX_WORKERS     = 5
+MAX_WORKERS     = 30
 
 # 3. Load or build FAISS index + chunks
 if os.path.exists(INDEX_PATH) and os.path.exists(CHUNKS_PATH):

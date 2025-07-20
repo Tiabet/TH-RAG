@@ -16,11 +16,11 @@ if not OPENAI_API_KEY:
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
 
-GEXF_PATH       = "hotpotQA/graph_v1.gexf"
-CHUNKS_PATH     = "hotpotQA/chunks.txt"
-GRAPH_JSON_PATH = "hotpotQA/graph_v1.json"
-INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
-PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
+GEXF_PATH       = "UltraDomain/Agriculture/graph_v1.gexf"
+CHUNKS_PATH     = "UltraDomain/Agriculture/chunks.txt"
+GRAPH_JSON_PATH = "UltraDomain/Agriculture/graph_v1.json"
+INDEX_PATH      = "UltraDomain/Agriculture/edge_index_v1.faiss"
+PAYLOAD_PATH    = "UltraDomain/Agriculture/edge_payloads_v1.npy"
 # hotpotQA
 
 class GraphRAG:
@@ -73,7 +73,7 @@ class GraphRAG:
             cid    = hit.get("chunk_id", "?")
 
             parts.append(
-                f"(Edge {i} | rank={rank} score={score:.3f} chunk_id={cid})\n"
+                f"(Edge {i} | rank={rank} score={score:.3f})\n"
                 f"[{source}] --{label}→ [{target}]\n"
                 f"{sent}"
             )
@@ -104,10 +104,12 @@ class GraphRAG:
         resp = self.client.chat.completions.create(
             model=self.chat_model,
             messages=[
-                {"role": "system", "content": "You are a graph‑aware assistant, capable of understanding complex relationships."},
+                {"role": "system", "content": "You are a graph‑aware assistant,and an expert that always gives detailed, comprehensive answers."},
                 {"role": "user",   "content": prompt},
             ],
-            temperature=0.3,
+            temperature=1.0,
+            max_tokens=16384,
+            response_format={"type": "text"},
         )
         return resp.choices[0].message.content.strip(), spent_time, len(context_tokens)
 
