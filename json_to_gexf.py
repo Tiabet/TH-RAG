@@ -5,26 +5,12 @@ import html
 import re
 import argparse
 
-# ─────────────────────────────────────────────────────────────────────
-# ✅ 외부에서 import 가능한 유틸 함수들
-# ─────────────────────────────────────────────────────────────────────
-
 def clean_id(text: str) -> str:
     """노드 ID용: 공백, 특수문자 제거 및 소문자화"""
     if not isinstance(text, str):
         text = str(text)
     text = text.lower()
     return re.sub(r"[^\w\-\.]", "_", text)
-
-def clean_text_for_xml(text: str) -> str:
-    """GEXF-safe 텍스트로 변환 (제어문자 제거 + HTML escape)"""
-    if not isinstance(text, str):
-        return ""
-    # 제어문자 제거 (유니코드 허용 범위에 맞게)
-    text = ''.join(ch for ch in text if 0x20 <= ord(ch) <= 0xD7FF or 0xE000 <= ord(ch) <= 0xFFFD)
-    # &, <, > 등 HTML escape
-    text = html.escape(text)
-    return text.strip()
 
 def is_valid(item: dict) -> bool:
     """triplet 형식이 맞는지 검증"""
@@ -89,7 +75,7 @@ def convert_json_to_gexf(input_file: str, output_file: str = None):
             (subj_node, subj, 'entity'), (subj_st_node, subj_st, 'subtopic'), (subj_mt_node, subj_mt, 'topic'),
             (obj_node, obj, 'entity'), (obj_st_node, obj_st, 'subtopic'), (obj_mt_node, obj_mt, 'topic')
         ]:
-            safe_label = clean_text_for_xml(label)
+            safe_label = label
             G.add_node(node, label=safe_label.lower(), type=typ)
 
         # 계층 엣지
@@ -99,9 +85,9 @@ def convert_json_to_gexf(input_file: str, output_file: str = None):
         G.add_edge(obj_st_node, obj_mt_node, label='has_topic', relation_type='topic_relation')
 
         # 문장 및 predicate 엣지
-        safe_sentence = clean_text_for_xml(sentence)
-        safe_pred     = clean_text_for_xml(pred.lower())
-
+        safe_sentence = sentence
+        safe_pred     = pred.lower()
+        
         if G.has_edge(subj_node, obj_node):
             existing = G[subj_node][obj_node]
             if safe_pred and safe_pred not in existing['label']:

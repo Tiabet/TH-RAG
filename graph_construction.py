@@ -24,7 +24,7 @@ args = parser.parse_args()
 MODEL_NAME = "gpt-4o-mini"
 MAX_TOKENS = 1200
 OVERLAP = 100
-MAX_WORKERS = 50
+MAX_WORKERS = 1
 
 # ==== Load env ====
 load_dotenv()

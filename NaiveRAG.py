@@ -11,11 +11,11 @@ from openai import OpenAI
 from prompt.answer_short import ANSWER_PROMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
 
 # === Configuration ===
-CONTEXT_PATH    = 'hotpotQA/contexts.txt'
-QUESTIONS_PATH  = 'hotpotQA/questions.json'
-OUTPUT_PATH     = 'Reesult/naive_answers.json'
-INDEX_PATH      = 'hotpotQA/faiss_index.bin'
-CHUNKS_PATH     = 'hotpotQA/chunks.json'
+CONTEXT_PATH    = 'MultihopRAG/contexts.txt'
+QUESTIONS_PATH  = 'MultihopRAG/qa.json'
+OUTPUT_PATH     = 'Result/NaiveRAG/naive_answers.json'
+INDEX_PATH      = 'MultihopRAG/chunks_faiss.bin'
+CHUNKS_PATH     = 'MultihopRAG/chunks.json'
 
 # 1. Load API key and init client
 load_dotenv()
@@ -48,13 +48,16 @@ else:
     # Embed chunks in parallel
     def embed_chunk(chunk: str) -> np.ndarray:
         resp = client.embeddings.create(model=EMBEDDING_MODEL, input=chunk)
-        return np.array(resp.data[0].embedding, dtype='float32')
+        # return np.array(resp.data[0].embedding, dtype='float32')
+        emb = np.array(resp.data[0].embedding, dtype='float32')
+        return emb / np.linalg.norm(emb)
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as exe:
         embeddings = list(tqdm(exe.map(embed_chunk, chunks), total=len(chunks), desc="Embedding chunks"))
 
     emb_matrix = np.vstack(embeddings)
-    index = faiss.IndexFlatL2(emb_matrix.shape[1])
+    # index = faiss.IndexFlatL2(emb_matrix.shape[1])
+    index = faiss.IndexFlatIP(emb_matrix.shape[1])
     index.add(emb_matrix)
 
     # Save index and chunks
@@ -73,8 +76,13 @@ def process_question(item) -> dict:
     question = item.get('query') if isinstance(item, dict) else item
     # Embed question
     q_emb = client.embeddings.create(model=EMBEDDING_MODEL, input=question)
-    q_vec = np.array(q_emb.data[0].embedding, dtype='float32').reshape(1, -1)
-    # Retrieve top-3 chunks
+
+    # q_vec = np.array(q_emb.data[0].embedding, dtype='float32').reshape(1, -1)
+    q_vec = np.array(q_emb.data[0].embedding, dtype='float32')
+    q_vec /= np.linalg.norm(q_vec) # 정규화<br>q_vec = q_vec.reshape(1, -1)
+    q_vec = q_vec.reshape(1, -1) 
+
+    # Retrieve top-7 chunks
     D, I = index.search(q_vec, 7)
     retrieved = [chunks[i] for i in I[0]]
     # Build prompt and generate answer
@@ -85,10 +93,10 @@ def process_question(item) -> dict:
         messages=[{'role':'system','content':'You are a helpful assistant.'},
                   {'role':'user','content':prompt}]
     )
-    return {"query": question, "answer": chat.choices[0].message.content.strip()}
+    return {"query": question, "result": chat.choices[0].message.content.strip()}
 
 # 5. Process questions in parallel
-with ThreadPoolExecutor(max_workers=1) as exe:
+with ThreadPoolExecutor(max_workers=MAX_WORKERS) as exe:
     for res in tqdm(exe.map(process_question, questions), total=len(questions), desc="Processing questions"):
         results.append(res)
 

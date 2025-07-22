@@ -13,7 +13,6 @@ Multiple Paragraphs
 ---Response Rules---
 - Use markdown formatting with appropriate section headings
 - Please respond in the same language as the user's question.
-- Ensure the response maintains continuity with the conversation history.
 - If you don't know the answer, just say so.
 - Do not make anything up. Do not include information not provided by the Infromation.
 

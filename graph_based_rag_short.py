@@ -16,12 +16,11 @@ if not OPENAI_API_KEY:
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
 
-GEXF_PATH       = "UltraDomain/Agriculture/graph_v1.gexf"
-CHUNKS_PATH     = "UltraDomain/Agriculture/chunks.txt"
-GRAPH_JSON_PATH = "UltraDomain/Agriculture/graph_v1.json"
-INDEX_PATH      = "UltraDomain/Agriculture/edge_index_v1.faiss"
-PAYLOAD_PATH    = "UltraDomain/Agriculture/edge_payloads_v1.npy"
-# hotpotQA
+GEXF_PATH       = "hotpotQA/graph_v1.gexf"
+CHUNKS_PATH     = "hotpotQA/chunks.txt"
+GRAPH_JSON_PATH = "hotpotQA/graph_v1.json"
+INDEX_PATH      = "hotpotQA/edge_index_v1.faiss"
+PAYLOAD_PATH    = "hotpotQA/edge_payloads_v1.npy"
 
 class GraphRAG:
     def __init__(
@@ -62,7 +61,7 @@ class GraphRAG:
         for i, chk in enumerate(chunks, 1):
             parts.append(f"[Chunk {i}] {chk}")
 
-        # 2) 전체 edge 정보 (50개) 포함
+        # # 2) 전체 edge 정보 (50개) 포함
         for i, hit in enumerate(edges_meta, 1):
             source = hit.get("source", "?")
             label  = hit.get("label", "?")
@@ -98,8 +97,6 @@ class GraphRAG:
         context = self.compose_context(chunks, edges_meta)
         prompt  = ANSWER_PROMPT.replace("{question}", query).replace("{context}", context)
         # print(f"{len(context)} characters in context.")
-        tokenizer = tiktoken.encoding_for_model(self.chat_model)
-        context_tokens = tokenizer.encode(context, disallowed_special=())
 
         resp = self.client.chat.completions.create(
             model=self.chat_model,
@@ -111,13 +108,13 @@ class GraphRAG:
             max_tokens=16384,
             response_format={"type": "text"},
         )
-        return resp.choices[0].message.content.strip(), spent_time, len(context_tokens)
+        return resp.choices[0].message.content.strip(), spent_time, context
 
 
 # ── 예시 실행 ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
     rag = GraphRAG()
     q = 'Which American comedian born on March 21, 1962, appeared in the movie "Sleepless in Seattle"?'
-    ans = rag.answer(q, top_k1=50, top_k2=10)
+    ans = rag.answer(q, top_k1=10, top_k2=5)
     print("\n=== Answer ===")
     print(ans)

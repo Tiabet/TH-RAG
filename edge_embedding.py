@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 import argparse
 
 EMBEDDING_MODEL = "text-embedding-3-small"
-MAX_WORKERS     = 10
+MAX_WORKERS     = 50
 
 # Load environment variables
 load_dotenv()
@@ -31,12 +31,39 @@ if not OPENAI_API_KEY:
 
 import re
 
-def _normalize_sentence(s: str) -> str:
-    """대소문자·공백·구두점 최소 정규화."""
-    s = re.sub(r"\s+", " ", s.strip())   # 줄바꿈·다중 공백 → 1칸
-    return s.lower()
+def build_sent2chunk(graph_json_path: str) -> Dict[str, int]:
+    with open(graph_json_path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    mapping = {}
+    for idx, block in enumerate(data):
+        if not isinstance(block, dict):
+            print(f"⚠️ Skipping non-dict block at index {idx}: {block}")
+            continue
+
+        chunk_id = block.get("chunk_id")
+        triples = block.get("triples", [])
+
+        if not isinstance(triples, list):
+            continue
+
+        for item in triples:
+            if not isinstance(item, dict):
+                continue
+
+            sentence = item.get("sentence")
+
+            if isinstance(sentence, str):
+                mapping[sentence] = chunk_id
+            elif isinstance(sentence, list):
+                for s in sentence:
+                    if isinstance(s, str):
+                        mapping[s] = chunk_id
+
+    return mapping
 
 class EdgeEmbedderFAISS:
+
 
     def __init__(
         self,
@@ -68,6 +95,7 @@ class EdgeEmbedderFAISS:
         # Placeholders for index and payload
         self.index: faiss.IndexFlatIP
         self.payloads: List[Dict] = []
+        self.sent2cid = build_sent2chunk("hotpotQA/graph_v1.json")
 
 
     def _embed(self, text: str) -> np.ndarray:
@@ -89,16 +117,18 @@ class EdgeEmbedderFAISS:
         # Worker function to embed and generate payload
         def worker(edge: Edge):
             eid, src, dst, lbl, sent = edge
-            key = _normalize_sentence(sent)
+            key = sent
             if key in seen:
                 return None
             emb = self._embed(sent)
+            cid = self.sent2cid.get(key)
             payload = {
-                "edge_id": eid,
-                "source": src,
-                "target": dst,
-                "label": lbl,
-                "sentence": sent
+            "edge_id": eid,
+            "source": src,
+            "target": dst,
+            "label": lbl,
+            "sentence": sent,
+            "chunk_id": cid,  # ✅ 추가됨
             }
             return emb, payload
 
@@ -122,45 +152,55 @@ class EdgeEmbedderFAISS:
         self.index = faiss.read_index(self.index_path)
         self.payloads = np.load(self.payload_path, allow_pickle=True).tolist()
 
-    def search(self, query: str, top_k: int = 5, filter_entities: Set[str] = None) -> List[Dict]:
-        q_emb = self._embed(query).reshape(1, -1)
-        if filter_entities:
-            # payloads 필터링
-            filtered = [(i, p) for i, p in enumerate(self.payloads)
-                        if p["source"] in filter_entities or p["target"] in filter_entities]
-            idxs, payloads = zip(*filtered) if filtered else ([], [])
-            embs = np.vstack([self.index.reconstruct(int(i)) for i in idxs])
-            sims = (embs @ q_emb.T).flatten()
-            order = np.argsort(-sims)[:min(len(sims), top_k)]
-            results = []
-            for rank, idx in enumerate(order, start=1):
-                p = payloads[idx]
-                results.append({
-                    "edge_id": p["edge_id"],
-                    "source": p["source"],
-                    "target": p["target"],
-                    "label": p.get("label"),
-                    "sentence": p.get("sentence"),
-                    "score": float(sims[idx]),
-                    "rank": rank
-                })
-            return results
-        else:
-            # 기존 로직 유지
-            D, I = self.index.search(q_emb, top_k)
-            results = []
-            for rank, idx in enumerate(I[0], start=1):
-                p = self.payloads[idx]
-                results.append({
-                    "edge_id": p["edge_id"],
-                    "source": p["source"],
-                    "target": p["target"],
-                    "label": p.get("label"),
-                    "sentence": p.get("sentence"),
-                    "score": float(D[0][rank-1]),
-                    "rank": rank
-                })
-            return results
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        filter_entities: Set[str] | None = None,
+        overretrieve: int = 5,          # 필터용 여유 검색 개수(top_k*overretrieve)
+    ) -> List[Dict]:
+        """
+        query         : 검색할 문장
+        top_k         : 최종으로 돌려줄 결과 수
+        filter_entities : {"E1", "E2"} 형태. 있으면 source/target 기준으로 필터
+        overretrieve  : 필터가 있을 때 넉넉히 가져올 배수
+        """
+        # 1️⃣ 쿼리 임베딩
+        q_vec = self._embed(query).reshape(1, -1)
+
+        # 2️⃣ FAISS 검색 (필터 O → 더 많이, 필터 X → 정확히 top_k)
+        k = top_k * overretrieve if filter_entities else top_k
+        D, I = self.index.search(q_vec, k)
+
+        # 3️⃣ 결과 후처리 (필터 적용 + top_k 슬라이스)
+        results = []
+        for rank, idx in enumerate(I[0], start=1):
+            if idx < 0:                 # padding 값(-1) 방어
+                continue
+            p = self.payloads[idx]
+
+            # 엔티티 필터링
+            if filter_entities and (
+                p["source"] not in filter_entities
+                and p["target"] not in filter_entities
+            ):
+                continue
+
+            results.append({
+                "edge_id" : p["edge_id"],
+                "source"  : p["source"],
+                "target"  : p["target"],
+                "label"   : p.get("label"),
+                "sentence": p.get("sentence"),
+                "chunk_id": p.get("chunk_id"),
+                "score"   : float(D[0][rank - 1]),
+                "rank"    : len(results) + 1,
+            })
+
+            if len(results) == top_k:   # 원하는 개수 채우면 종료
+                break
+
+        return results
 
 
 # ── 명령줄에서 직접 실행될 경우만 ────────────────────────────────────────

@@ -49,7 +49,7 @@ def choose_subtopics_for_topic(
     graph: nx.Graph,
     client: OpenAI,
     model: str = DEFAULT_MODEL,
-    max_subtopics: int = 25,
+    max_subtopics: int = 50,
 ) -> List[str]:
     """Return up to ``max_subtopics`` relevant subtopic **labels** for *topic_nid*.
 

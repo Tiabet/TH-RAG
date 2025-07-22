@@ -126,6 +126,6 @@ class GraphRAG:
 if __name__ == "__main__":
     rag = GraphRAG()
     q = 'Which American comedian born on March 21, 1962, appeared in the movie "Sleepless in Seattle"?'
-    ans = rag.answer(q, top_k1=50, top_k2=10)
+    ans = rag.answer(q, top_k1=25, top_k2=5)
     print("\n=== Answer ===")
     print(ans)
