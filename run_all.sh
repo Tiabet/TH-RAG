@@ -33,8 +33,5 @@
 
 # echo ""
 # echo "🎉 전체 파이프라인 완료!"
-  python edge_embedding.py \
-    -g "hotpotQA/graph_v1_processed.gexf" \
-    -i "hotpotQA/edge_index_v1.faiss" \
-    -p "hotpotQA/edge_payloads_v1.npy"
+  python edge_embedding.py -g "hotpotQA/graph_v1_processed.gexf" -i "hotpotQA/edge_index_v1.faiss" -p "hotpotQA/edge_payloads_v1.npy"
   echo "✅ Done: hotpotQA FAISS + Payload"

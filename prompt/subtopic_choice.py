@@ -1,37 +1,37 @@
-"""
-Prompt template for letting an LLM choose up to 10 relevant **subtopics** that belong to a single parent topic.
-
-The assistant receives:
-  * {TOPIC_LABEL}   – the parent topic label (string)
-  * {SUBTOPIC_LIST} – JSON array of all subtopic labels directly connected to that topic
-  * {question}      – the user's natural‑language query
-
-The assistant must output **only** valid JSON with the following schema::
-
-    {"subtopics": ["SubA", "SubB", ...]}
-
-Every chosen subtopic string must be taken verbatim from {SUBTOPIC_LIST} and the
-order of appearance must follow the original list.
-"""
-
 SUBTOPIC_CHOICE_PROMPT = """
-You are an expert knowledge‑graph assistant.
 
 --- Goal ---
-For the given topic **{TOPIC_LABEL}**, choose every subtopic from the list below that is helpful for answering the user's question. Select **10 to 50** subtopics. Do **NOT** invent new subtopics.
-Always return at least 25 subtopics, unless case of list is shorter than 25.
+Given the user's question, choose **all** topics from the supplied list that are directly relevant to answering the question.
+For the given topic **{TOPIC_LABEL}**, choose every subtopic from the list below that is helpful for answering the user's question.
+Select **{min_subtopics} to {max_subtopics}** subtopics. Do **NOT** invent new subtopics.
+Always return at least {min_subtopics} subtopics, unless case of list is shorter than {min_subtopics}.
 
 --- Instructions ---
 1. Consider only the subtopics provided in **{SUBTOPIC_LIST}**.
 2. Read the user's question provided in **{question}**.
 3. Output your selection as valid JSON **without** markdown, comments, or extra text.
 4. Preserve the original order of **{SUBTOPIC_LIST}** when listing the chosen subtopics.
-5. Format:
+5. Output JSON Format:
    {"subtopics": ["SubLbl1", "SubLbl2", ...]}
 6. You MUST ONLY choose from the list provided below. Do not invent or rephrase any subtopics.
+7. If you cannot find any relevant topics, just find the most relevant {min_subtopics} topics.
 
---- Allowed Subtopics for {TOPIC_LABEL} ---
-{SUBTOPIC_LIST}
 
 Question: {question}
+
+--- Allowed Subtopics for {{TOPIC_LABEL}} ---
+{{SUBTOPIC_LIST}}
+
+---Remind of Instructions---
+--- Instructions ---
+1. Consider only the subtopics provided in **{SUBTOPIC_LIST}**.
+2. Read the user's question provided in **{question}**.
+3. Output your selection as valid JSON **without** markdown, comments, or extra text.
+4. Preserve the original order of **{SUBTOPIC_LIST}** when listing the chosen subtopics.
+5. Output JSON Format:
+
+   {"subtopics": ["SubLbl1", "SubLbl2", ...]}
+6. You MUST ONLY choose from the list provided below. Do not invent or rephrase any subtopics.
+7. If you cannot find any relevant subtopics, just find the most relevant {min_subtopics} subtopics.
+
 """

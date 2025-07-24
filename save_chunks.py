@@ -1,21 +1,18 @@
 from pathlib import Path
 import tiktoken
-import argparse
+import json
+import hashlib
 
-parser = argparse.ArgumentParser(description="Split text into overlapping token chunks.")
-parser.add_argument("--input", "-i", type=str, required=True, help="Path to input .txt file")
-parser.add_argument("--output", "-o", type=str, required=True, help="Path to save chunked .txt file")
-args = parser.parse_args()
-TXT_PATH   = args.input
-OUT_PATH   = args.output
-     # 청크 저장 파일
-MODEL_NAME = "gpt-4o-mini"                            # tiktoken 모델
-MAX_TOKENS = 1200                                     # 청크 토큰 수
-OVERLAP    = 100                                      # 청크 간 겹침 토큰 수
-# ----------------------
+# 파일 경로
+TXT_PATH = Path("UltraDomain/Agriculture/contexts.txt")
+OUT_JSON_PATH = Path("UltraDomain/Agriculture/kv_store_text_chunks.json")
 
+# 청크 설정
+MODEL_NAME = "gpt-4o-mini"
+MAX_TOKENS = 1200
+OVERLAP = 100
 
-# 청크 함수
+# 텍스트 → 청크 리스트
 def chunk_text(text: str, max_tokens: int, overlap: int, model: str):
     enc = tiktoken.encoding_for_model(model)
     tokens = enc.encode(text)
@@ -26,16 +23,28 @@ def chunk_text(text: str, max_tokens: int, overlap: int, model: str):
         start += max_tokens - overlap
     return chunks
 
-# 1) 원본 읽기
-full_text = Path(TXT_PATH).read_text(encoding="utf-8")
+# 1) 전체 텍스트 불러오기
+full_text = TXT_PATH.read_text(encoding="utf-8")
 
 # 2) 청킹
 chunks = chunk_text(full_text, MAX_TOKENS, OVERLAP, MODEL_NAME)
-print(f"✅ 청크 {len(chunks)}개 생성")
+print(f"✅ 총 {len(chunks)}개의 청크 생성 완료.")
 
-# 3) 저장 (한 줄 = 한 청크, 줄바꿈 제거)
-with Path(OUT_PATH).open("w", encoding="utf-8") as f:
-    for ch in chunks:
-        f.write(ch.replace("\n", " ").strip() + "\n")
+# 3) kv-store JSON 저장
+kv_data = {}
+for i, chunk in enumerate(chunks):
+    cleaned = chunk.replace("\n", " ").strip()
+    chunk_hash = hashlib.md5(cleaned.encode("utf-8")).hexdigest()
+    chunk_id = f"chunk-{chunk_hash}"
+    kv_data[chunk_id] = {
+        "tokens": len(cleaned.split()),  # 또는 실제 토큰 수 사용 가능
+        "content": cleaned,
+        "chunk_order_index": i,
+        "full_doc_id": "doc-from-contexts"
+    }
 
-print(f"💾 저장 완료 → {OUT_PATH}")
+# 4) 저장
+with OUT_JSON_PATH.open("w", encoding="utf-8") as f:
+    json.dump(kv_data, f, indent=2, ensure_ascii=False)
+
+print(f"💾 저장 완료 → {OUT_JSON_PATH}")

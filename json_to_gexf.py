@@ -79,9 +79,9 @@ def convert_json_to_gexf(input_file: str, output_file: str = None):
             G.add_node(node, label=safe_label.lower(), type=typ)
 
         # 계층 엣지
-        G.add_edge(subj_node, subj_st_node, label='has_subtopic', relation_type='subtopic_relation')
+        G.add_edge(subj_node, subj_st_node, label='has_subtopic', relation_type='subtopic_relation', topic=subj_mt)
         G.add_edge(subj_st_node, subj_mt_node, label='has_topic', relation_type='topic_relation')
-        G.add_edge(obj_node, obj_st_node, label='has_subtopic', relation_type='subtopic_relation')
+        G.add_edge(obj_node, obj_st_node, label='has_subtopic', relation_type='subtopic_relation', topic=obj_mt)
         G.add_edge(obj_st_node, obj_mt_node, label='has_topic', relation_type='topic_relation')
 
         # 문장 및 predicate 엣지
@@ -125,7 +125,4 @@ def convert_json_to_gexf(input_file: str, output_file: str = None):
 # ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Convert JSON triples to GEXF graph.")
-    parser.add_argument("input_file", type=str, help="Path to input JSON file (e.g., graph_v1.json)")
-    args = parser.parse_args()
-    convert_json_to_gexf(args.input_file)
+    convert_json_to_gexf("UltraDomain/Mix/graph_v1.json")

@@ -21,7 +21,9 @@ load_dotenv()
 # Configuration
 # ---------------------------------------------------------------------------
 DEFAULT_MODEL = "gpt-4o-mini"  # same as the rest of the code‑base
-
+TOPIC_CHOICE_MIN = 5
+TOPIC_CHOICE_MAX = 10
+MAX_RETRIES = 10
 # ---------------------------------------------------------------------------
 # Core helpers
 # ---------------------------------------------------------------------------
@@ -43,8 +45,9 @@ def choose_topics_from_graph(
     graph: nx.Graph,
     client: OpenAI,
     model: str = DEFAULT_MODEL,
-    max_topics: int = 5,
-    max_retries: int = 3,
+    max_topics: int = TOPIC_CHOICE_MAX,
+    min_topics: int = TOPIC_CHOICE_MIN,
+    max_retries: int = MAX_RETRIES,
 ) -> List[str]:
     """Ask the LLM to pick up to *max_topics* relevant topics from *graph*.
 
@@ -68,9 +71,13 @@ def choose_topics_from_graph(
 
     prompt_str = (
         TOPIC_CHOICE_PROMPT
-        .replace("{TOPIC_LIST}", json.dumps(topic_labels, ensure_ascii=False))
-        .replace("{question}", question)
+        .replace("{{TOPIC_LIST}}", json.dumps(topic_labels, ensure_ascii=False))
+        .replace("{{question}}", question)
+        .replace("{max_topics}", str(max_topics))
+        .replace("{min_topics}", str(TOPIC_CHOICE_MIN))
+        .replace("{min_topics}", str(min_topics))
     )
+    # print(prompt_str)
 
     for attempt in range(1, max_retries + 1):
         response = client.chat.completions.create(
@@ -79,10 +86,12 @@ def choose_topics_from_graph(
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt_str},
             ],
-            temperature=0,
+            response_format={"type": "json_object"},
+            temperature=0.3,
         )
 
         content = response.choices[0].message.content
+        # print(content)
 
         try:
             data = json.loads(content)
@@ -113,13 +122,14 @@ if __name__ == "__main__":
     import networkx as nx
 
     # Example: load graph and run a single query
-    GEXF_PATH = 'hotpotQA/graph_v1.gexf'
+    GEXF_PATH = 'MultihopRAG/graph_v1.gexf'
     if not os.path.exists(GEXF_PATH):
         raise SystemExit("Set GEXF_PATH environment variable or place graph.gexf in cwd.")
 
     G = nx.read_gexf(GEXF_PATH)
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    question = "Which American comedian born on March 21, 1962, appeared in the movie \"Sleepless in Seattle?\""
+    # question = "Which documentary was filmed first, Almost Sunrise or Hail! Hail! Rock 'n' Roll?"
+    question = "Which is larger, Hunchun or Shijiazhuang?"
     print("Chosen topics:")
     print(choose_topics_from_graph(question, G, client))

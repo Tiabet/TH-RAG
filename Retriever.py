@@ -1,8 +1,3 @@
-"""Thread‑powered version of `retriever_chunk.py`
--------------------------------------------------
-Uses `concurrent.futures.ThreadPoolExecutor` to run *subtopic selection* in
-parallel for each chosen topic.  All other logic is unchanged.
-"""
 
 from __future__ import annotations
 
@@ -11,7 +6,7 @@ import os
 import re
 from collections import defaultdict
 from typing import Dict, List, Set
-from concurrent.futures import ThreadPoolExecutor, as_completed  # 🆕
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import networkx as nx
 from openai import OpenAI
@@ -23,61 +18,53 @@ from subtopic_choice import choose_subtopics_for_topic
 
 load_dotenv()
 
-
 # ---------- 하드코딩/경로 ----------
-GEXF_PATH        = "hotpotQA/graph_v1.gexf"
-CHUNKS_PATH      = "hotpotQA/chunks.txt"      # 한 줄‑한 청크
-GRAPH_JSON_PATH  = "hotpotQA/graph_v1.json"      # sentence + chunk_id
-INDEX_PATH       = "hotpotQA/edge_index_v1.faiss"
-PAYLOAD_PATH     = "hotpotQA/edge_payloads_v1.npy"
-EMBEDDING_MODEL  = "text-embedding-3-small"
-OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY")
+GEXF_PATH = "MultihopRAG/graph_v1.gexf"
+KV_JSON_PATH = "MultihopRAG/kv_store_text_chunks.json"
+GRAPH_JSON_PATH = "MultihopRAG/graph_v1.json"
+INDEX_PATH = "MultihopRAG/edge_index_v1.faiss"
+PAYLOAD_PATH = "MultihopRAG/edge_payloads_v1.npy"
+EMBEDDING_MODEL = "text-embedding-3-small"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+MAX_WORKERS = 10
 # -----------------------------------
 
-# ──────────────────────────────────────────────────────────────────────
-# Utility helpers
-# ──────────────────────────────────────────────────────────────────────
-
-def normalize(s: str) -> str:
-    """대소문자·공백·구두점 최소 정규화."""
-    s = re.sub(r"\s+", " ", s.strip())   # 줄바꿈·다중 공백 → 1칸
-    return s.lower()
-
-# ──────────────────────────────────────────────────────────────────────
-# Retriever class – now with thread‑level parallelism
-# ──────────────────────────────────────────────────────────────────────
+# ... 생략된 import 및 상수 정의는 그대로 ...
 
 class Retriever:
     def __init__(
         self,
         gexf_path: str,
-        chunks_path: str,
-        graph_json_path: str,
+        json_path: str,
+        kv_json_path: str,
         index_path: str,
         payload_path: str,
         embedding_model: str,
         openai_api_key: str,
         client: OpenAI | None = None,
         *,
-        thread_workers: int = 8,  # 🆕 maximum threads for subtopic selection
+        thread_workers: int = 10,
     ) -> None:
         if not openai_api_key:
             raise ValueError("OPENAI_API_KEY is required")
 
-        # 0) Load graph / chunks / sentence→chunk map
         print("📖  loading graph …", end=" ")
         self.graph = nx.read_gexf(gexf_path)
         print(f"done ({self.graph.number_of_nodes()} nodes)")
 
-        with open(chunks_path, encoding="utf-8") as f:
-            self.chunks = [ln.rstrip("\n") for ln in f]
-        print(f"📚  {len(self.chunks)} chunks loaded")
+        # kv-store 로딩 (chunk id map도 여기서 준비)
+        with open(kv_json_path, encoding="utf-8") as f:
+            kv_data = json.load(f)
+
+        self.chunk_map: Dict[str, str] = {k: v["content"] for k, v in kv_data.items()}
+        self.chunk_id_list: List[str] = list(kv_data.keys())  # ← index → chunk_id 변환용
+        print(f"📚  {len(self.chunk_map)} chunks loaded")
 
         self.client = client or OpenAI(api_key=openai_api_key)
 
-        # FAISS embedder
         self.embedder = EdgeEmbedderFAISS(
             gexf_path=gexf_path,
+            json_path=json_path,
             embedding_model=embedding_model,
             openai_api_key=openai_api_key,
             index_path=index_path,
@@ -87,7 +74,6 @@ class Retriever:
             self.embedder.load_index()
             print("✅  FAISS index loaded\n")
 
-        # Quick index for label→node‑id mapping
         self.topic_lbl2nid = {
             d["label"]: n for n, d in self.graph.nodes(data=True) if d.get("type") == "topic"
         }
@@ -97,7 +83,6 @@ class Retriever:
 
         self.thread_workers = thread_workers
 
-    # ------------------------------------------------------------------
     def retrieve(self, query: str, top_k1: int = 50, top_k2: int = 5) -> Dict[str, List[str]]:
         print("=== Retrieval ===")
         topics = choose_topics_from_graph(query, self.graph, self.client)
@@ -106,19 +91,19 @@ class Retriever:
         chosen_subtopics: dict[str, List[str]] = defaultdict(list)
         entities: Set[str] = set()
 
-        # ───────── Threaded subtopic selection ──────────
         def _process_topic(t: str):
-            """Select subtopics + collect connected entities for a single topic."""
             t_id = self.topic_lbl2nid.get(t)
             if t_id is None:
                 return t, [], set()
 
-            subs = choose_subtopics_for_topic(
+            subs_dict = choose_subtopics_for_topic(
                 question=query,
                 topic_nid=t_id,
                 graph=self.graph,
                 client=self.client,
             )
+            # print(f"Subtopics for {t}:", subs_dict)
+            subs = subs_dict
 
             ent_set: Set[str] = set()
             for sub_lbl in subs:
@@ -131,7 +116,7 @@ class Retriever:
                     }
             return t, subs, ent_set
 
-        max_workers = min(self.thread_workers, len(topics)) or 1
+        max_workers = min(self.thread_workers, len(topics))
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures = [pool.submit(_process_topic, t) for t in topics]
             for fut in as_completed(futures):
@@ -139,67 +124,87 @@ class Retriever:
                 chosen_subtopics[t] = subs
                 entities |= ent_set
 
-        # ───────── Rest of the original pipeline ──────────
         if not entities:
             print("🚫 no entities → abort")
             return {}
 
-        # 1) FAISS search (edge‑level)
         edges = self.embedder.search(query, top_k=top_k1, filter_entities=entities)
 
-        # 2) Keep only the top_k2 unique chunks using chunk_id directly
-        chunk_ids: List[int] = []
-        seen: Set[int] = set()
+        chunk_ids: List[str] = []
+        seen: Set[str] = set()
 
         for e in edges:
-            cid = e.get("chunk_id")
-            if cid is not None and cid not in seen:
-                seen.add(cid)
-                chunk_ids.append(cid)
+            raw_id = e.get("chunk_id")
+            chunk_id = None
+
+            if isinstance(raw_id, int):
+                if 0 <= raw_id < len(self.chunk_id_list):
+                    chunk_id = self.chunk_id_list[raw_id]
+            elif isinstance(raw_id, str) and raw_id.isdigit():
+                idx = int(raw_id)
+                if 0 <= idx < len(self.chunk_id_list):
+                    chunk_id = self.chunk_id_list[idx]
+            elif isinstance(raw_id, str) and raw_id.startswith("chunk-"):
+                chunk_id = raw_id
+
+            if chunk_id and chunk_id not in seen:
+                seen.add(chunk_id)
+                chunk_ids.append(chunk_id)
                 if len(chunk_ids) == top_k2:
                     break
 
-        chunks_text = [self.chunks[c] for c in chunk_ids]
-        print(f"🗂  returning {len(chunks_text)} chunks\n")
+        print(f"🗂  returning {len(chunk_ids)} chunk IDs\n")
 
+        simplified_edges = []
+        for e in edges:
+            chunk_id = None
+            raw_id = e.get("chunk_id")
+            if isinstance(raw_id, int):
+                if 0 <= raw_id < len(self.chunk_id_list):
+                    chunk_id = self.chunk_id_list[raw_id]
+            elif isinstance(raw_id, str) and raw_id.isdigit():
+                idx = int(raw_id)
+                if 0 <= idx < len(self.chunk_id_list):
+                    chunk_id = self.chunk_id_list[idx]
+            elif isinstance(raw_id, str) and raw_id.startswith("chunk-"):
+                chunk_id = raw_id
 
-        simplified_edges = [
-            {
+            simplified_edges.append({
                 "source": e.get("source"),
                 "target": e.get("target"),
-                "label": e.get("label"),
                 "sentence": e.get("sentence"),
                 "score": e.get("score"),
                 "rank": e.get("rank"),
-            }
-            for e in edges
-        ]
+                "chunk_id": chunk_id
+            })
 
         return {
-            "chunks": chunks_text,
+            "chunks": chunk_ids,
             "edges": simplified_edges,
             "topics": topics,
             "subtopics": chosen_subtopics,
         }
 
-
 if __name__ == "__main__":
-    from openai import OpenAI
-    
     retriever = Retriever(
         gexf_path=GEXF_PATH,
-        chunks_path=CHUNKS_PATH,
-        graph_json_path=GRAPH_JSON_PATH,
+        kv_json_path=KV_JSON_PATH,
+        json_path=GRAPH_JSON_PATH,
         index_path=INDEX_PATH,
         payload_path=PAYLOAD_PATH,
         embedding_model=EMBEDDING_MODEL,
         openai_api_key=OPENAI_API_KEY,
         client=OpenAI(api_key=OPENAI_API_KEY),
     )
+    with open("MultihopRAG/qa.json", encoding="utf-8") as f:
+        qa_list = json.load(f)
 
-    res = retriever.retrieve(
-        "Of the retired tennis players Ross Case and Slobodan Živojinović, which player reached a higher career-high singles ranking?",
-        top_k1=50,
-        top_k2=10,
-    )
-    # print(res)
+    for i in range(10, 15):
+        query = qa_list[i]["query"]
+        print(f"\nQuery {i+1}: {query}")
+        res = retriever.retrieve(
+            query,
+            top_k1=50,
+            top_k2=10,
+        )
+        print(res["subtopics"])

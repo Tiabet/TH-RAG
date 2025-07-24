@@ -1,4 +1,3 @@
-import argparse
 import json
 from pathlib import Path
 from typing import List
@@ -15,16 +14,14 @@ if "SSL_CERT_FILE" in os.environ:
     os.environ.pop("SSL_CERT_FILE")
 
 # ==== Argument Parsing ====
-parser = argparse.ArgumentParser()
-parser.add_argument("--input", required=True, help="Input .txt file")
-parser.add_argument("--output", required=True, help="Output .json file")
-args = parser.parse_args()
+input_path = "MultihopRAG/contexts.txt"
+output_path = "MultihopRAG/graph_v1.json"
 
 # ==== 고정 설정 ====
 MODEL_NAME = "gpt-4o-mini"
 MAX_TOKENS = 1200
 OVERLAP = 100
-MAX_WORKERS = 1
+MAX_WORKERS = 10
 
 # ==== Load env ====
 load_dotenv()
@@ -67,11 +64,11 @@ def call_model(client: openai.OpenAI, model: str, chunk: str, index: int) -> dic
         return {"error": str(e), "chunk_index": index}
 
 # ==== Load Text & Chunk ====
-full_text = Path(args.input).read_text(encoding="utf-8")
+full_text = Path(input_path).read_text(encoding="utf-8")
 chunks = chunk_text(full_text, MAX_TOKENS, OVERLAP, MODEL_NAME)
 
 # ==== Load Existing ====
-output_path = Path(args.output)
+output_path = Path(output_path)
 if output_path.exists():
     with open(output_path, "r", encoding="utf-8") as f:
         try:
@@ -102,4 +99,4 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=2)
 
-print(f"✅ Extraction complete. Output saved to {args.output}")
+print(f"✅ Extraction complete. Output saved to {output_path}")

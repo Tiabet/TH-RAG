@@ -10,6 +10,10 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import argparse
 
+GEXF_PATH = "UltraDomain/Agriculture/graph_v1.gexf"
+INDEX_PATH = "UltraDomain/Agriculture/edge_index_v1.faiss"
+PAYLOAD_PATH = "UltraDomain/Agriculture/edge_payloads_v1.npy"
+JSON_PATH = "UltraDomain/Agriculture/graph_v1.json"
 EMBEDDING_MODEL = "text-embedding-3-small"
 MAX_WORKERS     = 50
 
@@ -72,6 +76,7 @@ class EdgeEmbedderFAISS:
         openai_api_key: str,
         index_path: str,
         payload_path: str,
+        json_path: str,
     ) -> None:
         # Load graph and initialize
         self.graph = nx.read_gexf(gexf_path)
@@ -80,6 +85,7 @@ class EdgeEmbedderFAISS:
         self.openai = OpenAI(api_key=openai_api_key)
         self.index_path = index_path
         self.payload_path = payload_path
+        self.json_path = json_path
 
         # Prepare edges: split by sentence and assign unique ids
         self.edges: List[Edge] = []
@@ -95,7 +101,7 @@ class EdgeEmbedderFAISS:
         # Placeholders for index and payload
         self.index: faiss.IndexFlatIP
         self.payloads: List[Dict] = []
-        self.sent2cid = build_sent2chunk("hotpotQA/graph_v1.json")
+        self.sent2cid = build_sent2chunk(self.json_path)
 
 
     def _embed(self, text: str) -> np.ndarray:
@@ -205,20 +211,10 @@ class EdgeEmbedderFAISS:
 
 # ── 명령줄에서 직접 실행될 경우만 ────────────────────────────────────────
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Build or load FAISS edge index from graph.")
-    parser.add_argument("--gexf", "-g", type=str, required=True, help="Path to input .gexf graph file")
-    parser.add_argument("--index", "-i", type=str, required=True, help="Path to output .faiss index file")
-    parser.add_argument("--payload", "-p", type=str, required=True, help="Path to output .npy payload file")
-    args = parser.parse_args()
-
-    GEXF_PATH = args.gexf
-    INDEX_PATH = args.index
-    PAYLOAD_PATH = args.payload
 
     embedder = EdgeEmbedderFAISS(
         gexf_path=GEXF_PATH,
+        json_path=JSON_PATH,
         embedding_model=EMBEDDING_MODEL,
         openai_api_key=OPENAI_API_KEY,
         index_path=INDEX_PATH,

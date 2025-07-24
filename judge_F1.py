@@ -5,9 +5,10 @@ from collections import Counter
 from pathlib import Path
 
 # ---------- 하드코딩된 파일 경로 ----------
-PRED_PATH = Path("Result/Ours/hotpot_result_sampled_v4.json")
-GOLD_PATH = Path("hotpotQA/qa.json")
-# GOLD_PATH = Path("hotpotQA/qa.json") 
+PRED_PATH = Path("Result/Ours/MultihopRAG_result_200.json")
+# PRED_PATH = Path("Result/Ours/hotpot_result_1000.json")
+# GOLD_PATH = Path("hotpotQA/qa.json")
+GOLD_PATH = Path("MultihopRAG/qa.json") 
 
 # ---------- text normalization ----------
 def normalize(s: str) -> str:

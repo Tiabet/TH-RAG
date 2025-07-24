@@ -22,6 +22,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ---------------------------------------------------------------------------
+# Configurable selection range
+# ---------------------------------------------------------------------------
+SUBTOPIC_CHOICE_MIN = 10
+SUBTOPIC_CHOICE_MAX = 25
+
+
 
 DEFAULT_MODEL = "gpt-4o-mini"
 MAX_RETRIES = 5        # ← configurable global
@@ -49,8 +56,9 @@ def choose_subtopics_for_topic(
     graph: nx.Graph,
     client: OpenAI,
     model: str = DEFAULT_MODEL,
-    max_subtopics: int = 50,
-) -> List[str]:
+    max_subtopics: int = SUBTOPIC_CHOICE_MAX,
+    min_subtopics: int = SUBTOPIC_CHOICE_MIN,
+) -> dict[str, List[str]]:
     """Return up to ``max_subtopics`` relevant subtopic **labels** for *topic_nid*.
 
     LLM의 응답 중 유효한 서브토픽만 필터링해서 반환함. 응답이 JSON 파싱 실패 시에만 재시도.
@@ -64,13 +72,15 @@ def choose_subtopics_for_topic(
     if not sub_nodes:
         return []
     sub_labels = [lbl for _nid, lbl in sub_nodes]
-
+    min_subtopics = min(min_subtopics, len(sub_labels))
     # 2) 프롬프트 구성
     prompt = (
         SUBTOPIC_CHOICE_PROMPT
-        .replace("{TOPIC_LABEL}", graph.nodes[topic_nid].get("label", ""))
-        .replace("{SUBTOPIC_LIST}", json.dumps(sub_labels, ensure_ascii=False))
+        .replace("{{TOPIC_LABEL}}", graph.nodes[topic_nid].get("label", ""))
+        .replace("{{SUBTOPIC_LIST}}", json.dumps(sub_labels, ensure_ascii=False))
         .replace("{question}", question)
+        .replace("{max_subtopics}", str(max_subtopics))
+        .replace("{min_subtopics}", str(min_subtopics))
     )
 
     # 3) 최대 MAX_RETRIES까지 JSON 파싱 실패 시 재시도
@@ -82,8 +92,11 @@ def choose_subtopics_for_topic(
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0,
+                response_format={"type": "json_object"},
+                temperature=0.3,
+                frequency_penalty=1.2,
             )
+            # print(prompt)
             content = response.choices[0].message.content
 
             data = json.loads(content)
@@ -91,16 +104,18 @@ def choose_subtopics_for_topic(
 
             if not isinstance(chosen, list):
                 print(f"⚠️ Attempt {attempt}: 'subtopics' is not a list. Returning [].")
-                return []
+                continue
 
             # 허용된 서브토픽만 필터링
             valid_chosen = [lbl for lbl in sub_labels if lbl in chosen]
 
             if not valid_chosen:
+                print("⚠️ raw LLM response:", content) 
                 print(f"⚠️ Attempt {attempt}: No valid subtopics in LLM response.")
             return valid_chosen[:max_subtopics]
 
         except (json.JSONDecodeError, KeyError) as exc:
+            print("⚠️ raw LLM response:", content) 
             print(f"⚠️ Attempt {attempt}: JSON parse/format error → {exc}. Retrying…")
         except Exception as exc:
             print(f"⚠️ Attempt {attempt}: OpenAI error → {exc}. Retrying…")
@@ -126,13 +141,14 @@ if __name__ == "__main__":
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     # topic_id = next(n for n, d in G.nodes(data=True) if d.get("type") == "topic")
-    topic_id = "topic_entertainment"
-    print("Topic:", G.nodes[topic_id]["label"])
+    topic_id = ['topic_culture', 'topic_art', 'topic_music', 'topic_performance', 'topic_theater']
 
-    subs = choose_subtopics_for_topic(
-        question="Which American comedian born on March 21, 1962, appeared in the movie 'Sleepless in Seattle'?",
-        topic_nid=topic_id,
-        graph=G,
-        client=client,
-    )
-    print("Chosen subtopics:", subs)
+    for topic in topic_id :
+        subs = choose_subtopics_for_topic(
+            question="How many operas are among the artist who composed The Prelude for Clarinet in B-flat major best known works?",
+            topic_nid=topic,
+            graph=G,
+            client=client,
+        )
+        print("Chosen subtopics:", subs)
+

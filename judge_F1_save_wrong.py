@@ -5,7 +5,7 @@ from collections import Counter
 from pathlib import Path
 
 # ---------- 하드코딩된 파일 경로 ----------
-PRED_PATH = Path("Result/Ours/hotpot_result_v3_50_5.json")
+PRED_PATH = Path("Result/Ours/hotpot_result_1.json")
 GOLD_PATH = Path("hotpotQA/qa.json")
 WRONG_PATH = Path("Result/Ours/wrong_cases.json")  # 🔹 추가된 저장 경로
 

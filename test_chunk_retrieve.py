@@ -5,7 +5,7 @@ from typing import Dict, List, Set
 # ── 경로 설정 ─────────────────────────────────────────────────────────────
 HOTPOT_PATH          = Path("hotpotQA/sampled_1000.jsonl")          # ↩︎ 1 000개 샘플
 CHUNK_STORE_PATH     = Path("hotpotQA/hotpot_kv_store_text_chunks.json")     # ↩︎ chunk‑ID → text
-OUT_PATH             = Path("Result/Ours/hotpot_gold_chunk_ids.json")    # ↩︎ 결과 저장
+OUT_PATH             = Path("Result/hotpot_gold_chunk_ids.json")    # ↩︎ 결과 저장
 
 # ── 유틸 함수 ────────────────────────────────────────────────────────────
 def load_chunk_store() -> Dict[str, str]:
