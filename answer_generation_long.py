@@ -1,77 +1,100 @@
 import json
 from graph_based_rag_long import GraphRAG
-# from graph_based_rag_chunks import GraphRAG  # Import the updated class
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
+import tiktoken
 
-# 입력/출력 경로
-input_path = "UltraDomain/Agriculture/qa.json"
-output_path = "Result/Ours/agriculture_result.json"
+# 인코더 초기화
+enc = tiktoken.encoding_for_model("gpt-4o")
+
+# 설정
+input_path       = "UltraDomain/Mix/qa.json"
+output_path      = "Result/Ours/mix_result.json"
+chunk_log_path   = "Result/Ours/Chunks/used_chunks_mix.jsonl"
 temp_output_path = output_path.replace(".json", "_temp.json")
 
-# (1) 결과 디렉터리 없으면 만들기 ─ 가장 먼저!
+MAX_WORKERS = 30
+TOP_K1 = 50
+TOP_K2 = 5
+
+# 결과 디렉터리 생성
 os.makedirs(os.path.dirname(output_path), exist_ok=True)
+os.makedirs(os.path.dirname(chunk_log_path), exist_ok=True)
 
-# GraphRAG 인스턴스
+# GraphRAG 인스턴스 생성
 rag = GraphRAG()
+chunk_log_file = open(chunk_log_path, "w", encoding="utf-8")
 
-# 입력 로딩
+# 질문 로딩
 with open(input_path, 'r', encoding='utf-8') as f:
     questions = json.load(f)
 
-# 결과 저장 리스트 (index 순서 보존)
+# 결과 리스트 초기화
 output_data = [None] * len(questions)
 
-# 작업 함수
+# 처리 함수
 def process(index_query):
     idx, item = index_query
     query = item.get("query", "")
     try:
-        answer, spent, tokens = rag.answer(query)
-        print(answer)
+        answer, spent, context = rag.answer(query=query, top_k1=TOP_K1, top_k2=TOP_K2)
+        chunk_ids = getattr(rag, "last_chunk_ids", [])
     except Exception as e:
         answer = f"[Error] {e}"
-        spent  = 0.0
-        tokens = 0
-    
-    spent  = float(spent)
-    tokens = int(tokens)
-    
-    result = {"query": query, "result": answer, "time": spent, "context_token": tokens}
+        spent = 0.0
+        context = ""
+        chunk_ids = []
+
+    # chunk-id 로그
+    for cid in chunk_ids:
+        chunk_log_file.write(json.dumps({"query": query, "chunk_id": cid}, ensure_ascii=False) + "\n")
+
+    # 문장 기반 chunk-id 로그
+    sentence_chunk_ids = set(getattr(rag, "all_sentence_chunk_ids", []))
+    for cid in sentence_chunk_ids:
+        chunk_log_file.write(json.dumps({"query": query, "sentence_chunk_id": cid}, ensure_ascii=False) + "\n")
+
+    # 결과 저장
+    result = {
+        "query": query,
+        "result": answer,
+        "time": spent,
+        "context_token": context,
+    }
     return idx, result
 
-# 병렬 처리
+# 병렬 실행
 completed = 0
-save_every = 5000
+save_every = 10
 
-with ThreadPoolExecutor(max_workers=20) as executor:
+with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     futures = [executor.submit(process, (i, item)) for i, item in enumerate(questions)]
     for future in tqdm(as_completed(futures), total=len(futures), desc="Generating answers"):
         idx, result = future.result()
-        output_data[idx] = result  # 순서 유지
+        output_data[idx] = result
         completed += 1
 
-        # 10개마다 임시 저장
         if completed % save_every == 0:
             with open(temp_output_path, 'w', encoding='utf-8') as f:
                 json.dump(output_data, f, indent=2, ensure_ascii=False)
-            # print(f"[Temp Save] {completed} items saved to {temp_output_path}")
 
-# 평균 소요 시간 및 토큰 수 계산
-valid_items = [it for it in output_data if it and not it["result"].startswith("[Error]")]
+chunk_log_file.close()
 
-if valid_items:
-    avg_time   = sum(it["time"]        for it in valid_items) / len(valid_items)
-    avg_tokens = sum(it["context_token"] for it in valid_items) / len(valid_items)
-
-    print(f"\n📊 평균 소요 시간: {avg_time:.2f}초")
-    print(f"📊 평균 컨텍스트 토큰 수: {avg_tokens:.1f}개")
-else:
-    print("⚠️  평균 계산을 위한 유효한 결과가 없습니다.")
-
-# 최종 저장
+# 최종 결과 저장
 with open(output_path, 'w', encoding='utf-8') as f:
     json.dump(output_data, f, indent=2, ensure_ascii=False)
 
-print(f"Saved final output to {output_path}")
+print(f"✅ 최종 결과 저장 완료 → {output_path}")
+
+# # 평균 시간 및 토큰 수 계산
+# valid_items = [it for it in output_data if it and not it["result"].startswith("[Error]")]
+
+# if valid_items:
+#     avg_time = sum(it["time"] for it in valid_items) / len(valid_items)
+#     avg_tokens = sum(len(enc.encode(it["context_token"])) for it in valid_items) / len(valid_items)
+
+#     print(f"\n📊 평균 소요 시간: {avg_time:.2f}초")
+#     print(f"📊 평균 컨텍스트 토큰 수: {avg_tokens:.1f}개")
+# else:
+#     print("⚠️ 유효한 결과가 없어 평균을 계산할 수 없습니다.")

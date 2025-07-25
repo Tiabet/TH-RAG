@@ -14,8 +14,8 @@ if "SSL_CERT_FILE" in os.environ:
     os.environ.pop("SSL_CERT_FILE")
 
 # ==== Argument Parsing ====
-input_path = "MultihopRAG/contexts.txt"
-output_path = "MultihopRAG/graph_v1.json"
+input_path = "UltraDomain/CS/contexts.txt"
+output_path = "UltraDomain/CS/graph_v1.json"
 
 # ==== 고정 설정 ====
 MODEL_NAME = "gpt-4o-mini"

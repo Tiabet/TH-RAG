@@ -14,20 +14,53 @@ load_dotenv()
 # ────────────────────── 설정 ──────────────────────
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
-MAX_WORKERS = 15         # 스레드 개수(네트워크·API 한도에 맞춰 조절)
+MAX_WORKERS = 30         # 스레드 개수(네트워크·API 한도에 맞춰 조절)
 RANDOM_SEED = 42           # 재현성 필요 시 None 대신 정수
 model_name = "gpt-4o-mini"  # 사용할 모델 이름
 # ──────────────────────────────────────────────────
 
-with open("Result/Ours/agriculture_result.json", encoding="utf-8") as f1, \
-     open("Result/LightRAG/hybrid_agriculture_result.json", encoding="utf-8") as f2:
+import os
+import json
+
+# 입력 경로
+my_rag_path    = "Result/Ours/mix_result.json"
+other_rag_path = "Result/PathRAG/mix_result.json"
+
+# 🔹 RAG 이름 자동 추출
+my_rag    = os.path.basename(os.path.dirname(my_rag_path))       # "Ours"
+other_rag = os.path.basename(os.path.dirname(other_rag_path))    # "LightRAG"
+
+# 🔹 도메인 이름 자동 추출 및 포맷
+filename = os.path.basename(my_rag_path)                         # "legal_result.json"
+domain_raw = filename.split("_result")[0]                        # "legal"
+domain_name = domain_raw.capitalize()                            # "Legal"
+
+# 🔹 출력 경로 설정
+out_path = f"Result/Ours/{domain_name}_{other_rag}_result.json"
+
+# 🔹 결과 로딩
+with open(my_rag_path, encoding="utf-8") as f1, \
+     open(other_rag_path, encoding="utf-8") as f2:
     graph_results = json.load(f1)
     light_results = json.load(f2)
 
-out_path = "Result/Ours/agriculture_LightRAG.json"
+graph_dict = {item["query"]: item for item in graph_results}
+light_dict = {item["query"]: item for item in light_results}
 
-my_rag = "KGRAG"
-other_rag = "LightRAG"
+# 공통 query만 추출
+common_queries = list(set(graph_dict) & set(light_dict))
+
+# 평가할 쌍 추출
+graph_results = [graph_dict[q] for q in common_queries]
+light_results = [light_dict[q] for q in common_queries]
+
+# answer1/answer2 위치 균등 분배
+N = len(graph_results)
+indices = list(range(N))
+if RANDOM_SEED is not None:
+    random.seed(RANDOM_SEED)
+random.shuffle(indices)
+kg_first_set = set(indices[: N // 2])
 
 # answer1/answer2 위치 균등 분배
 N = len(graph_results)

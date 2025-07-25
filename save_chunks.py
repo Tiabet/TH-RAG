@@ -4,8 +4,8 @@ import json
 import hashlib
 
 # 파일 경로
-TXT_PATH = Path("UltraDomain/Agriculture/contexts.txt")
-OUT_JSON_PATH = Path("UltraDomain/Agriculture/kv_store_text_chunks.json")
+TXT_PATH = Path("UltraDomain/Mix/contexts.txt")
+OUT_JSON_PATH = Path("UltraDomain/Mix/kv_store_text_chunks.json")
 
 # 청크 설정
 MODEL_NAME = "gpt-4o-mini"

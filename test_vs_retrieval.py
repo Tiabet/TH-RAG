@@ -4,10 +4,10 @@ from pathlib import Path
 from collections import defaultdict
 
 # ── 파일 경로 ─────────────────────────────────────────────────────────────
-RETRIEVED_PATH = Path("Result/LightRAG/chunk_query_chunks_multihoprag.jsonl")
+RETRIEVED_PATH = Path("Result/NaiveRAG/hotpot_result_with_uuid_chunks.json")
 # RETRIEVED_PATH = Path("Result/HypergraphRAG/chunk_query_chunks_multihop.jsonl")
 # GOLD_PATH      = Path("MultihopRAG/multihop_gold_chunk_ids.json")
-GOLD_PATH = Path("MultihopRAG/multihop_gold_chunk_ids.json")
+GOLD_PATH = Path("hotpotQA/hotpot_gold_chunk_ids_v2.json")
 
 # ── 로더 ──────────────────────────────────────────────────────────────────
 def load_retrieved(path: Path) -> dict[str, list[str]]:

@@ -10,10 +10,10 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import argparse
 
-GEXF_PATH = "UltraDomain/Agriculture/graph_v1.gexf"
-INDEX_PATH = "UltraDomain/Agriculture/edge_index_v1.faiss"
-PAYLOAD_PATH = "UltraDomain/Agriculture/edge_payloads_v1.npy"
-JSON_PATH = "UltraDomain/Agriculture/graph_v1.json"
+GEXF_PATH = "UltraDomain/Mix/graph_v1.gexf"
+INDEX_PATH = "UltraDomain/Mix/edge_index_v1.faiss"
+PAYLOAD_PATH = "UltraDomain/Mix/edge_payloads_v1.npy"
+JSON_PATH = "UltraDomain/Mix/graph_v1.json"
 EMBEDDING_MODEL = "text-embedding-3-small"
 MAX_WORKERS     = 50
 

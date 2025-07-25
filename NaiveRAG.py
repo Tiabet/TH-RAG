@@ -1,4 +1,3 @@
-# pip install openai==1.93.0 faiss-cpu python-dotenv tiktoken
 import os
 import json
 from dotenv import load_dotenv
@@ -8,35 +7,37 @@ import tiktoken
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from openai import OpenAI
-from prompt.answer_short import ANSWER_PROMPT  # 여기에 your prompt 템플릿이 문자열로 정의되어 있어야 합니다
+from prompt.answer import ANSWER_PROMPT
 
 # === Configuration ===
-CONTEXT_PATH    = 'MultihopRAG/contexts.txt'
-QUESTIONS_PATH  = 'MultihopRAG/qa.json'
-OUTPUT_PATH     = 'Result/NaiveRAG/naive_answers.json'
-INDEX_PATH      = 'MultihopRAG/chunks_faiss.bin'
-CHUNKS_PATH     = 'MultihopRAG/chunks.json'
+CONTEXT_PATH    = 'hotpotQA/contexts.txt'
+QUESTIONS_PATH  = 'hotpotQA/qa.json'
+OUTPUT_PATH     = 'Result/NaiveRAG/hotpot_result.json'
+INDEX_PATH      = 'Result/NaiveRAG/hotpot_chunks_faiss.bin'
+CHUNKS_PATH     = 'Result/NaiveRAG/hotpot_chunks.json'
+USED_CHUNKS_LOG = 'Result/NaiveRAG/hotpot_used_chunks.jsonl'
+top_k = 7
 
-# 1. Load API key and init client
+# Load environment and OpenAI client
 load_dotenv()
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
-# 2. Parameters
-CHUNK_SIZE      = 1200
-CHUNK_OVERLAP   = 100
+CHUNK_SIZE = 1200
+CHUNK_OVERLAP = 100
 EMBEDDING_MODEL = 'text-embedding-3-small'
-QA_MODEL        = 'gpt-4o-mini'
-MAX_WORKERS     = 30
+QA_MODEL = 'gpt-4o-mini'
+MAX_WORKERS = 30
 
-# 3. Load or build FAISS index + chunks
+# === Load or create FAISS index and chunk UUID map ===
 if os.path.exists(INDEX_PATH) and os.path.exists(CHUNKS_PATH):
-    # Load index and chunks
-    print(f"Loading FAISS index from {INDEX_PATH} and chunks from {CHUNKS_PATH}...")
+    print(f"📥 Loading FAISS index from {INDEX_PATH} and chunks from {CHUNKS_PATH}...")
     index = faiss.read_index(INDEX_PATH)
     with open(CHUNKS_PATH, 'r', encoding='utf-8') as f:
-        chunks = json.load(f)
+        chunk_kv = json.load(f)
+    chunk_uuid_list = list(chunk_kv.keys())
+    chunks = list(chunk_kv.values())
 else:
-    # Read and chunk contexts
+    print("🔧 Building FAISS index and chunks...")
     with open(CONTEXT_PATH, 'r', encoding='utf-8') as f:
         text = f.read()
     encoder = tiktoken.get_encoding('cl100k_base')
@@ -45,62 +46,77 @@ else:
         encoder.decode(tokens[i:i + CHUNK_SIZE])
         for i in range(0, len(tokens), CHUNK_SIZE - CHUNK_OVERLAP)
     ]
-    # Embed chunks in parallel
+    chunk_uuid_list = [f"chunk-{i:06d}" for i in range(len(chunks))]
+    chunk_kv = dict(zip(chunk_uuid_list, chunks))
+
     def embed_chunk(chunk: str) -> np.ndarray:
         resp = client.embeddings.create(model=EMBEDDING_MODEL, input=chunk)
-        # return np.array(resp.data[0].embedding, dtype='float32')
         emb = np.array(resp.data[0].embedding, dtype='float32')
         return emb / np.linalg.norm(emb)
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as exe:
-        embeddings = list(tqdm(exe.map(embed_chunk, chunks), total=len(chunks), desc="Embedding chunks"))
+        embeddings = list(tqdm(exe.map(embed_chunk, chunks), total=len(chunks), desc="🔍 Embedding chunks"))
 
     emb_matrix = np.vstack(embeddings)
-    # index = faiss.IndexFlatL2(emb_matrix.shape[1])
     index = faiss.IndexFlatIP(emb_matrix.shape[1])
     index.add(emb_matrix)
 
-    # Save index and chunks
     faiss.write_index(index, INDEX_PATH)
     with open(CHUNKS_PATH, 'w', encoding='utf-8') as f:
-        json.dump(chunks, f, ensure_ascii=False)
-    print(f"Built and saved FAISS index to {INDEX_PATH} and chunks to {CHUNKS_PATH}")
+        json.dump(chunk_kv, f, ensure_ascii=False)
+    print(f"✅ Saved FAISS index to {INDEX_PATH} and chunks to {CHUNKS_PATH}")
 
-# 4. Load questions and RAG
+# === Load questions ===
 with open(QUESTIONS_PATH, 'r', encoding='utf-8') as f:
     questions = json.load(f)
 results = []
+chunk_log_file = open(USED_CHUNKS_LOG, 'w', encoding='utf-8')
 
-# Function to process one question
+# === QA processing function ===
 def process_question(item) -> dict:
     question = item.get('query') if isinstance(item, dict) else item
-    # Embed question
     q_emb = client.embeddings.create(model=EMBEDDING_MODEL, input=question)
-
-    # q_vec = np.array(q_emb.data[0].embedding, dtype='float32').reshape(1, -1)
     q_vec = np.array(q_emb.data[0].embedding, dtype='float32')
-    q_vec /= np.linalg.norm(q_vec) # 정규화<br>q_vec = q_vec.reshape(1, -1)
-    q_vec = q_vec.reshape(1, -1) 
+    q_vec /= np.linalg.norm(q_vec)
+    q_vec = q_vec.reshape(1, -1)
 
-    # Retrieve top-7 chunks
-    D, I = index.search(q_vec, 7)
-    retrieved = [chunks[i] for i in I[0]]
-    # Build prompt and generate answer
-    context = "\n\n".join(retrieved)
+    D, I = index.search(q_vec, top_k)
+    retrieved_chunks = [chunks[i] for i in I[0]]
+    used_chunk_ids = [chunk_uuid_list[i] for i in I[0]]
+
+    for chunk_id in used_chunk_ids:
+        chunk_log_file.write(json.dumps({
+            "query": question,
+            "chunk_id": chunk_id
+        }, ensure_ascii=False) + "\n")
+
+    context = "\n\n".join(retrieved_chunks)
     prompt = ANSWER_PROMPT.replace("{question}", question).replace("{context}", context)
     chat = client.chat.completions.create(
         model=QA_MODEL,
-        messages=[{'role':'system','content':'You are a helpful assistant.'},
-                  {'role':'user','content':prompt}]
+        messages=[
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': prompt}
+        ]
     )
-    return {"query": question, "result": chat.choices[0].message.content.strip()}
 
-# 5. Process questions in parallel
+    return {
+        "query": question,
+        "result": chat.choices[0].message.content.strip(),
+        "used_chunks": used_chunk_ids
+    }
+
+# === Execute RAG ===
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as exe:
-    for res in tqdm(exe.map(process_question, questions), total=len(questions), desc="Processing questions"):
+    for res in tqdm(exe.map(process_question, questions), total=len(questions), desc="🤖 Processing questions"):
         results.append(res)
 
-# 6. Save answers
+chunk_log_file.close()
+
+# === Save results ===
+os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
     json.dump(results, f, ensure_ascii=False, indent=2)
-print(f"Completed RAG. Answers saved to {OUTPUT_PATH}")
+
+print(f"🎉 Completed RAG. Answers saved to {OUTPUT_PATH}")
+print(f"🧾 Used chunk log saved to {USED_CHUNKS_LOG}")

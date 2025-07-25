@@ -14,11 +14,11 @@ if not OPENAI_API_KEY:
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
 
-GEXF_PATH        = "UltraDomain/Agriculture/graph_v1.gexf"
-JSON_PATH        = "UltraDomain/Agriculture/graph_v1.json"
-KV_JSON_PATH     = "UltraDomain/Agriculture/kv_store_text_chunks.json"
-INDEX_PATH       = "UltraDomain/Agriculture/edge_index_v1.faiss"
-PAYLOAD_PATH     = "UltraDomain/Agriculture/edge_payloads_v1.npy"
+GEXF_PATH        = "UltraDomain/Mix/graph_v1.gexf"
+JSON_PATH        = "UltraDomain/Mix/graph_v1.json"
+KV_JSON_PATH     = "UltraDomain/Mix/kv_store_text_chunks.json"
+INDEX_PATH       = "UltraDomain/Mix/edge_index_v1.faiss"
+PAYLOAD_PATH     = "UltraDomain/Mix/edge_payloads_v1.npy"
 
 class GraphRAG:
     def __init__(
@@ -116,11 +116,8 @@ class GraphRAG:
             messages=[
                 {"role": "system",
                  "content": (
-                     "You are a domain-aware assistant with deep expertise in analyzing graph-based context. "
-                     "Your responses should be **long, comprehensive, and insightful**, drawing deeply from the provided information. "
-                     "Elaborate on relevant connections, concepts, and relationships using all available details in the context.\n\n"
+                     "Your responses should be **long, comprehensive, diverse, and empowering**, drawing deeply from the provided information. "
                      "Always aim to synthesize the information meaningfully, avoiding surface-level summaries. "
-                     "Highlight nuances, patterns, and interrelations between entities or ideas wherever possible.\n\n"
                      "Be analytical and thoughtful. Your goal is not just to answer, but to **educate and inform** using the full richness of the input data."
                  )},
                 {"role": "user", "content": prompt},
@@ -134,7 +131,7 @@ class GraphRAG:
 # ── 예시 실행 ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
     rag = GraphRAG()
-    q = "Which American comedian born on March 21, 1962, appeared in the movie 'Sleepless in Seattle'?"
+    q = "What recurring tasks are essential for successful hive management throughout the bee season?"
     ans = rag.answer(q, top_k1=25, top_k2=5)
     print("\n=== Answer ===")
     print(ans)
