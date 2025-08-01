@@ -4,17 +4,23 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from collections import defaultdict
 from typing import Dict, List, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 import networkx as nx
 from openai import OpenAI
 from dotenv import load_dotenv
 
-from edge_embedding import EdgeEmbedderFAISS
-from topic_choice import choose_topics_from_graph
-from subtopic_choice import choose_subtopics_for_topic
+# 프로젝트 루트를 경로에 추가
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from index.edge_embedding import EdgeEmbedderFAISS
+from index.topic_choice import choose_topics_from_graph
+from index.subtopic_choice import choose_subtopics_for_topic
 
 load_dotenv()
 

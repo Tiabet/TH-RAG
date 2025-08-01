@@ -1,9 +1,15 @@
-import os, openai, json
+import os, openai, json, time, sys
 from typing import List, Dict
+from pathlib import Path
 from dotenv import load_dotenv
+import tiktoken
+
+# 프로젝트 루트를 경로에 추가
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from Retriever import Retriever
-from prompt.answer_short import ANSWER_PROMPT
-import time
+from prompt.answer import ANSWER_PROMPT
 
 # ── 환경변수 및 경로 ───────────────────────────────────────────────────
 load_dotenv()
@@ -14,14 +20,15 @@ if not OPENAI_API_KEY:
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
 
-GEXF_PATH        = "hotpotQA/graph_v1.gexf"
-JSON_PATH        = "hotpotQA/graph_v1.json"
-KV_JSON_PATH     = "hotpotQA/kv_store_text_chunks.json"
-INDEX_PATH       = "hotpotQA/edge_index_v1.faiss"
-PAYLOAD_PATH     = "hotpotQA/edge_payloads_v1.npy"
+GEXF_PATH        = "UltraDomain/Mix/graph_v1.gexf"
+JSON_PATH        = "UltraDomain/Mix/graph_v1.json"
+KV_JSON_PATH     = "UltraDomain/Mix/kv_store_text_chunks.json"
+INDEX_PATH       = "UltraDomain/Mix/edge_index_v1.faiss"
+PAYLOAD_PATH     = "UltraDomain/Mix/edge_payloads_v1.npy"
 
 class GraphRAG:
-    def __init__(self,
+    def __init__(
+        self,
         gexf_path: str        = GEXF_PATH,
         kv_json_path: str     = KV_JSON_PATH,
         index_path: str       = INDEX_PATH,
@@ -53,38 +60,25 @@ class GraphRAG:
         self.chat_model = chat_model
 
     def compose_context(self, chunk_ids: List[str], edges_meta: List[Dict]) -> str:
-        """
-        chunk_ids : top_k2개의 chunk-id
-        edges_meta : top_k1개의 전체 엣지 정보
-        """
         parts: List[str] = []
 
-        # 1) 청크 본문 (chunk-id → 실제 텍스트)
         for i, cid in enumerate(chunk_ids, 1):
             text = self.chunk_map.get(cid, "(missing)")
             parts.append(f"[Chunk {i}] {text}")
 
-        # 2) 전체 edge 정보
         for i, hit in enumerate(edges_meta, 1):
             source = hit.get("source", "?")
             label  = hit.get("label", "?")
             target = hit.get("target", "?")
-            # score  = hit.get("score", 0.0)
-            # rank   = hit.get("rank", "?")
             sent   = hit.get("sentence", "")
-            # cid  = hit.get("chunk_id", "?")  # 필요시 포함 가능
 
             parts.append(
-                # f"(Edge {i} | rank={rank} score={score:.3f})\n"
-                f"[{source}] --{label}→ [{target}]\n"
-                f"{sent}"
+                f"[{source}] --{label}→ [{target}]\n{sent}"
             )
 
         return "\n".join(parts)
 
-    # ------------------------------------------------------------------
     def answer(self, query: str, top_k1: int = 50, top_k2: int = 10) -> str:
-        # Retriever 실행 → chunk-ids + edges
         start_time = time.time()
         out = self.retriever.retrieve(query, top_k1=top_k1, top_k2=top_k2)
         end_time = time.time()
@@ -93,10 +87,6 @@ class GraphRAG:
         chunk_ids: List[str] = out.get("chunks", [])
         edges_meta: List[Dict] = out.get("edges", [])
 
-        chunk_ids: List[str] = out.get("chunks", [])
-        edges_meta: List[Dict] = out.get("edges", [])
-
-        # ✅ sentence들이 들어있던 모든 chunk-id 수집
         all_sentence_chunk_ids = []
         seen_chunk_ids = set()
         for edge in edges_meta:
@@ -115,42 +105,39 @@ class GraphRAG:
                 all_sentence_chunk_ids.append(chunk_id)
                 seen_chunk_ids.add(chunk_id)
 
-        self.last_chunk_ids = chunk_ids  # top-k2
-        self.all_sentence_chunk_ids = all_sentence_chunk_ids  # ✅ 새로 추가
-        
+        self.last_chunk_ids = chunk_ids
+        self.all_sentence_chunk_ids = all_sentence_chunk_ids
+
         if not chunk_ids:
             return "죄송합니다. 관련 정보를 찾지 못했습니다."
 
-        # 컨텍스트 조립
         context = self.compose_context(chunk_ids, edges_meta)
         prompt  = ANSWER_PROMPT.replace("{question}", query).replace("{context}", context)
+
+        tokenizer = tiktoken.encoding_for_model(self.chat_model)
+        context_tokens = tokenizer.encode(context, disallowed_special=())
 
         resp = self.client.chat.completions.create(
             model=self.chat_model,
             messages=[
-                {"role": "system", "content": "You are a graph‑aware assistant, and an expert that always gives detailed, comprehensive answers."},
-                {"role": "user",   "content": prompt},
+                {"role": "system",
+                 "content": (
+                     "Your responses should be **long, comprehensive, diverse, and empowering**, drawing deeply from the provided information. "
+                     "Always aim to synthesize the information meaningfully, avoiding surface-level summaries. "
+                     "Be analytical and thoughtful. Your goal is not just to answer, but to **educate and inform** using the full richness of the input data."
+                 )},
+                {"role": "user", "content": prompt},
             ],
-            temperature=0.0,
+            temperature=1.0,
+            max_tokens=16384,
             response_format={"type": "text"},
         )
-        return resp.choices[0].message.content.strip(), spent_time, context
+        return resp.choices[0].message.content.strip(), spent_time, len(context_tokens)
 
 # ── 예시 실행 ─────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import json, numpy as np, faiss, os
-    with open(KV_JSON_PATH, encoding="utf-8") as f:          # ← 인코딩 명시
-        kv_data = json.load(f)
-    print("📝 kv‑store chunks :", len(kv_data))
-
-    payload = np.load(PAYLOAD_PATH, allow_pickle=True)   # mmap_mode 빼고, allow_pickle=True
-    print("📦 payload entries:", len(payload))
-
-    index = faiss.read_index(INDEX_PATH)
-    print("🔍 faiss index    :", index.ntotal)
-    
     rag = GraphRAG()
-    q = "Which OpenAI figure rose with ChatGPT, promoted AI agents, and faced board controversy per Fortune and TechCrunch?"
-    ans = rag.answer(q, top_k1=50, top_k2=5)
+    q = "What recurring tasks are essential for successful hive management throughout the bee season?"
+    ans = rag.answer(q, top_k1=25, top_k2=5)
     print("\n=== Answer ===")
     print(ans)

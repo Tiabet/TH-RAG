@@ -1,0 +1,12 @@
+This is a test context for KGRAG pipeline.
+
+The KGRAG system is a knowledge graph-based retrieval augmented generation framework. It consists of several components:
+
+1. Graph Construction: This module builds a knowledge graph from input text documents.
+2. Edge Embedding: This creates vector embeddings for graph edges using various embedding models.
+3. Answer Generation: This uses the knowledge graph to generate answers to questions.
+4. Evaluation: This measures the quality of generated answers using metrics like F1 score.
+
+The pipeline can process different types of datasets including hotpotQA and UltraDomain datasets. Each dataset contains contexts and question-answer pairs that are used for training and evaluation.
+
+The system uses OpenAI's GPT models for answer generation and various embedding models for creating vector representations of the knowledge graph components.

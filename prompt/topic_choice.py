@@ -47,3 +47,7 @@ Question: {{question}}
 {{TOPIC_LIST}}
 
 """
+
+def get_topic_choice_prompt():
+    """Return the topic choice prompt."""
+    return TOPIC_CHOICE_PROMPT

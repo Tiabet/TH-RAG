@@ -10,6 +10,12 @@ from typing import List
 
 import networkx as nx
 from openai import OpenAI
+import sys
+from pathlib import Path
+
+# 프로젝트 루트를 경로에 추가
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Local prompt template
 from prompt.topic_choice import TOPIC_CHOICE_PROMPT

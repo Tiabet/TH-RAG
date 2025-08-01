@@ -1,5 +1,7 @@
 import os
 import json
+import sys
+from pathlib import Path
 import networkx as nx
 import numpy as np
 import faiss
@@ -10,12 +12,16 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import argparse
 
-GEXF_PATH = "UltraDomain/Mix/graph_v1.gexf"
-INDEX_PATH = "UltraDomain/Mix/edge_index_v1.faiss"
-PAYLOAD_PATH = "UltraDomain/Mix/edge_payloads_v1.npy"
-JSON_PATH = "UltraDomain/Mix/graph_v1.json"
+# 프로젝트 루트 설정
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+# 설정 import
+from config import get_config
+
+# 임베딩 모델 설정
 EMBEDDING_MODEL = "text-embedding-3-small"
-MAX_WORKERS     = 50
+MAX_WORKERS = 50
 
 # Load environment variables
 load_dotenv()
@@ -28,10 +34,8 @@ Edge = Tuple[str, str, str, str, str]  # id, source, target, label, sentence
 
 # === Configuration ===
 
-# OpenAI API 키 확인
+# OpenAI API 키 확인 (나중에 사용할 때 체크)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("환경 변수 OPENAI_API_KEY를 설정해야 합니다.")
 
 import re
 
@@ -211,16 +215,36 @@ class EdgeEmbedderFAISS:
 
 # ── 명령줄에서 직접 실행될 경우만 ────────────────────────────────────────
 if __name__ == "__main__":
-
+    parser = argparse.ArgumentParser(description="Edge embedding for KGRAG")
+    parser.add_argument("--dataset", required=True, help="Dataset name")
+    parser.add_argument("--rebuild", action="store_true", help="Force rebuild index")
+    
+    args = parser.parse_args()
+    
+    config = get_config(args.dataset)
+    
     embedder = EdgeEmbedderFAISS(
-        gexf_path=GEXF_PATH,
-        json_path=JSON_PATH,
+        gexf_path=str(config.get_graph_gexf_file()),
+        json_path=str(config.get_graph_json_file()),
         embedding_model=EMBEDDING_MODEL,
         openai_api_key=OPENAI_API_KEY,
-        index_path=INDEX_PATH,
-        payload_path=PAYLOAD_PATH,
+        index_path=str(config.get_edge_index_file()),
+        payload_path=str(config.get_edge_payload_file()),
     )
 
-    if not os.path.exists(INDEX_PATH):
+    index_path = config.get_edge_index_file()
+    if not index_path.exists() or args.rebuild:
         embedder.build_index()
         print("FAISS index & payloads 생성 완료.")
+        
+        # 파이프라인 상태 업데이트
+        state = config.load_pipeline_state() or {}
+        state[args.dataset] = state.get(args.dataset, {})
+        state[args.dataset]['edge_embedding'] = {
+            'completed': True,
+            'index_file': str(config.get_edge_index_file()),
+            'payload_file': str(config.get_edge_payload_file())
+        }
+        config.save_pipeline_state(state)
+    else:
+        print("FAISS index already exists. Use --rebuild to force rebuild.")

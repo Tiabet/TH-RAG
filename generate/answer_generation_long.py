@@ -1,9 +1,13 @@
-import json
+import json, sys, os
+from pathlib import Path
 from graph_based_rag_long import GraphRAG
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import os
 import tiktoken
+
+# 프로젝트 루트로 작업 디렉터리 변경
+PROJECT_ROOT = Path(__file__).parent.parent
+os.chdir(PROJECT_ROOT)
 
 # 인코더 초기화
 enc = tiktoken.encoding_for_model("gpt-4o")

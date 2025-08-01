@@ -2,13 +2,20 @@ import json
 import os
 import random
 import re
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from openai import OpenAI
 from tqdm import tqdm
-from prompt.evaluation import EVALUATION_PROMPT 
-from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 from collections import Counter
+
+# 프로젝트 루트를 경로에 추가
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from prompt.evaluation import EVALUATION_PROMPT 
+from dotenv import load_dotenv
 
 load_dotenv()
 # ────────────────────── 설정 ──────────────────────
