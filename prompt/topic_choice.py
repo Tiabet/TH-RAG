@@ -41,4 +41,9 @@ Question: {{question}}
 6. You MUST ONLY choose from the list provided below. **Do not invent or rephrase any subtopics.**
 7. If you cannot find any relevant topics, just find the most relevant {min_topics} topics.
 
+Question: {{question}}
+
+--- Allowed Topics ---
+{{TOPIC_LIST}}
+
 """

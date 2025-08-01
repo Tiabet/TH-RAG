@@ -8,12 +8,12 @@ import tiktoken
 enc = tiktoken.encoding_for_model("gpt-4o")
 
 # 입력/출력 경로
-input_path = "MultihopRAG/qa.json"
-output_path = "Result/Ours/multihop_result_1000.json"
+input_path = "hotpotQA/qa.json"
+output_path = "Result/Ours/hotpot_30_5.json"
 chunk_log_path = "Result/Ours/Chunks/used_chunks_1000_multihop.jsonl"
 temp_output_path = output_path.replace(".json", "_temp.json")
 MAX_WORKERS = 30  # 병렬 처리 스레드 수
-TOP_K1 = 50
+TOP_K1 = 30
 TOP_K2 = 5
 
 # (1) 결과 디렉터리 없으면 만들기 ─ 가장 먼저!

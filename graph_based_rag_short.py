@@ -2,7 +2,7 @@ import os, openai, json
 from typing import List, Dict
 from dotenv import load_dotenv
 from Retriever import Retriever
-from prompt.answer_short_v2 import ANSWER_PROMPT
+from prompt.answer_short import ANSWER_PROMPT
 import time
 
 # ── 환경변수 및 경로 ───────────────────────────────────────────────────
@@ -14,11 +14,11 @@ if not OPENAI_API_KEY:
 EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
 
-GEXF_PATH        = "MultihopRAG/graph_v1.gexf"
-JSON_PATH        = "MultihopRAG/graph_v1.json"
-KV_JSON_PATH     = "MultihopRAG/kv_store_text_chunks.json"
-INDEX_PATH       = "MultihopRAG/edge_index_v1.faiss"
-PAYLOAD_PATH     = "MultihopRAG/edge_payloads_v1.npy"
+GEXF_PATH        = "hotpotQA/graph_v1.gexf"
+JSON_PATH        = "hotpotQA/graph_v1.json"
+KV_JSON_PATH     = "hotpotQA/kv_store_text_chunks.json"
+INDEX_PATH       = "hotpotQA/edge_index_v1.faiss"
+PAYLOAD_PATH     = "hotpotQA/edge_payloads_v1.npy"
 
 class GraphRAG:
     def __init__(self,
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     print("🔍 faiss index    :", index.ntotal)
     
     rag = GraphRAG()
-    q = "Are the films Gasland from 2010 and Pumping Iron from 1977 both documentaries?"
-    ans = rag.answer(q, top_k1=10, top_k2=5)
+    q = "Which OpenAI figure rose with ChatGPT, promoted AI agents, and faced board controversy per Fortune and TechCrunch?"
+    ans = rag.answer(q, top_k1=50, top_k2=5)
     print("\n=== Answer ===")
     print(ans)

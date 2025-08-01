@@ -1,0 +1,39 @@
+# Core Python packages
+numpy>=1.26.4
+pandas>=2.2.3
+
+# Machine Learning and AI
+openai>=1.68.2
+tiktoken>=0.9.0
+faiss-cpu>=1.10.0
+sentence-transformers>=3.4.1
+transformers>=4.51.3
+torch>=2.5.1
+
+# Graph processing
+networkx>=3.4.2
+
+# NLP libraries
+nltk>=3.9.1
+
+# Text processing and embeddings
+tqdm>=4.67.1
+
+# Environment and configuration
+python-dotenv>=1.1.0
+
+# HTTP requests
+requests>=2.32.3
+
+# File processing
+pathlib
+json5>=0.9.6
+
+# Data serialization
+jsonschema>=4.23.0
+
+# Concurrent processing
+concurrent.futures
+
+# Standard library imports (included with Python)
+# os, json, re, time, typing, pathlib, argparse, html

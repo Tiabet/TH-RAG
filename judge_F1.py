@@ -5,10 +5,10 @@ from collections import Counter
 from pathlib import Path
 
 # ---------- 하드코딩된 파일 경로 ----------
-PRED_PATH = Path("Result/Ours/MultihopRAG_result_200.json")
+PRED_PATH = Path("Result/Ours/30_5.json")
 # PRED_PATH = Path("Result/Ours/hotpot_result_1000.json")
 # GOLD_PATH = Path("hotpotQA/qa.json")
-GOLD_PATH = Path("MultihopRAG/qa.json") 
+GOLD_PATH = Path("MultihopRAG/qa.json")
 
 # ---------- text normalization ----------
 def normalize(s: str) -> str:
@@ -55,7 +55,7 @@ def main():
     missing = 0
 
     for q, gold_ans in gold.items():
-        if q not in pred:
+        if q not in pred or "[Error]" in pred[q]:
             missing += 1
             continue
         pred_ans = pred[q]
