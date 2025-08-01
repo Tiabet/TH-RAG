@@ -162,24 +162,80 @@ python test_config.py
 
 ## 🛠️ 개발자 가이드
 
-### 개별 스크립트 실행
+### 사용 방법
 
+**1. GUI 도구 (Windows)**
+```bash
+# Windows에서 GUI 도구 실행
+run_pipeline.bat
+```
+
+**2. 명령줄 인터페이스**
+```bash
+# 전체 파이프라인 실행
+python pipeline.py --dataset your_dataset
+
+# 특정 단계만 실행
+python pipeline.py --dataset your_dataset --steps graph_construction,edge_embedding
+
+# 사용 가능한 데이터셋 목록
+python pipeline.py --list-datasets
+
+# 강제 재실행 (기존 결과 덮어쓰기)
+python pipeline.py --dataset your_dataset --force
+```
+
+**3. 개별 모듈 실행 (디버깅용)**
 ```bash
 # 그래프 구축
-python index/build_graph.py --dataset hotpotQA
+python index/graph_construction.py your_dataset
 
-# 답변 생성
-python generate/answer_generation_short.py
+# 답변 생성  
+python generate/answer_generation_short.py your_dataset
 
 # 평가
-python evaluate/judge_F1.py
+python evaluate/judge_F1.py your_dataset
 ```
 
 ### 새로운 데이터셋 추가
 
-1. `[데이터셋명]/contexts.txt` 생성
-2. `[데이터셋명]/qa.json` 생성 (선택사항)
-3. 인덱스 구축 스크립트 실행
+1. `data/[데이터셋명]/` 디렉터리 생성
+2. `data/[데이터셋명]/contexts.txt` 파일에 텍스트 데이터 저장
+3. `data/[데이터셋명]/questions.txt` 파일에 질문 목록 저장 (선택사항)
+4. 파이프라인 실행
+
+### 설정 튜닝
+
+`.env` 파일에서 하이퍼파라미터 조정:
+```env
+# RAG 검색 성능 조정
+TOP_K1=100         # 더 많은 엣지 검색 (기본값: 50)
+TOP_K2=20          # 더 많은 청크 선택 (기본값: 10)
+
+# 토픽 선택 범위 조정
+TOPIC_CHOICE_MAX=15      # 더 다양한 토픽 (기본값: 10)
+SUBTOPIC_CHOICE_MAX=30   # 더 다양한 서브토픽 (기본값: 25)
+
+# 모델 파라미터 조정
+TEMPERATURE=0.3          # 더 보수적인 답변 (기본값: 0.5)
+MAX_TOKENS=5000         # 더 긴 컨텍스트 (기본값: 3000)
+```
+
+## 📁 프로젝트 구조
+
+```
+KGRAG/
+├── 📄 pipeline.py          # 통합 파이프라인 실행기
+├── 📄 config.py            # 설정 관리
+├── 📄 test_config.py       # 설정 테스트 도구
+├── 🖥️ run_pipeline.bat     # Windows GUI 도구
+├── 📁 index/               # 그래프 구축 모듈
+├── 📁 generate/            # 답변 생성 모듈
+├── 📁 evaluate/            # 평가 모듈
+├── 📁 prompt/              # 프롬프트 템플릿
+├── 📁 data/                # 데이터셋 저장소
+└── 📁 results/             # 실행 결과
+```
 
 ## 📝 라이센스
 
