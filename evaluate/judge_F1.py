@@ -4,11 +4,11 @@ import json, re, string, sys, argparse
 from collections import Counter
 from pathlib import Path
 
-# 프로젝트 루트 설정
+# Set project root
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# 설정 import
+# Import configuration
 from config import get_config
 
 # ---------- text normalization ----------

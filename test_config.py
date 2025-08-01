@@ -1,51 +1,51 @@
 #!/usr/bin/env python3
 """
-KGRAG 설정 테스트 스크립트
-.env 파일의 설정들이 올바르게 로드되는지 확인합니다.
+KGRAG configuration test script
+Verify that .env file settings are loaded correctly.
 """
 
 import os
 from pathlib import Path
 
 def test_config():
-    """설정 테스트"""
+    """Configuration test"""
     print("🔧 KGRAG Configuration Test")
     print("=" * 50)
     
-    # .env 파일 확인
+    # Check .env file
     env_file = Path(".env")
     env_example = Path(".env.example")
     
     if not env_file.exists():
         if env_example.exists():
-            print("⚠️  .env 파일이 없습니다. .env.example을 복사해서 설정하세요:")
+            print("⚠️  .env file does not exist. Please copy .env.example and configure:")
             print(f"   cp {env_example} {env_file}")
         else:
-            print("❌ .env.example 파일도 없습니다!")
+            print("❌ .env.example file is also missing!")
         return
     
-    # Config 로드 테스트
+    # Test config loading
     try:
         from config import get_config
         config = get_config()
-        print("✅ Config 로드 성공!")
+        print("✅ Config loaded successfully!")
         
-        # API 키 확인
-        print(f"\n📍 API 설정:")
+        # Check API key
+        print(f"\n📍 API Configuration:")
         if config.openai_api_key:
             print(f"   OpenAI API Key: {'*' * 10}{config.openai_api_key[-4:] if len(config.openai_api_key) > 4 else '****'}")
         else:
-            print("   ⚠️  OpenAI API Key가 설정되지 않았습니다!")
+            print("   ⚠️  OpenAI API Key is not configured!")
             
-        # 모델 설정
-        print(f"\n🤖 Model 설정:")
-        print(f"   기본 모델: {config.default_model}")
-        print(f"   임베딩 모델: {config.embed_model}")
-        print(f"   채팅 모델: {config.chat_model}")
-        print(f"   평가 모델: {config.eval_model}")
+        # Model configuration
+        print(f"\n🤖 Model Configuration:")
+        print(f"   Default model: {config.default_model}")
+        print(f"   Embedding model: {config.embed_model}")
+        print(f"   Chat model: {config.chat_model}")
+        print(f"   Evaluation model: {config.eval_model}")
         
-        # 하이퍼파라미터
-        print(f"\n⚙️  하이퍼파라미터:")
+        # Hyperparameters
+        print(f"\n⚙️  Hyperparameters:")
         print(f"   Temperature: {config.temperature}")
         print(f"   Max Tokens: {config.max_tokens}")
         print(f"   Overlap: {config.overlap}")
@@ -86,14 +86,14 @@ def test_config():
                 display_value = value
             print(f"   {var}: {display_value}")
         else:
-            print(f"   {var}: ❌ 설정되지 않음")
+            print(f"   {var}: ❌ Not configured")
 
 def create_sample_env():
-    """샘플 .env 파일 생성"""
-    print("\n📝 샘플 .env 파일 생성 중...")
+    """Create sample .env file"""
+    print("\n📝 Creating sample .env file...")
     
     env_content = """# KGRAG Configuration
-# OpenAI API Key (필수)
+# OpenAI API Key (required)
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Model Settings

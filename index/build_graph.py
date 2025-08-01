@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-KGRAG 그래프 구축 파이프라인 스크립트
-사용법: python build_graph.py --dataset [데이터셋명] --input [contexts.txt 경로]
+KGRAG graph construction pipeline script
+Usage: python build_graph.py --dataset [dataset_name] --input [contexts.txt path]
 """
 
 import os
@@ -12,29 +12,29 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 
-# 프로젝트 루트 경로 설정
+# Set project root path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 def run_command(cmd: List[str], cwd: Optional[str] = None) -> bool:
-    """명령어 실행"""
+    """Execute command"""
     try:
-        print(f"🔄 실행 중: {' '.join(cmd)}")
+        print(f"🔄 Executing: {' '.join(cmd)}")
         result = subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True)
         if result.stdout:
             print(result.stdout)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"❌ 오류: {e}")
+        print(f"❌ Error: {e}")
         if e.stderr:
-            print(f"에러 메시지: {e.stderr}")
+            print(f"Error message: {e.stderr}")
         return False
 
 def extract_triples(input_file: str, output_file: str) -> bool:
-    """텍스트에서 트리플 추출"""
-    print(f"📝 트리플 추출: {input_file} → {output_file}")
+    """Extract triples from text"""
+    print(f"📝 Extracting triples: {input_file} → {output_file}")
     
-    # graph_construction.py를 동적으로 수정하여 실행
+    # Dynamically modify and execute graph_construction.py
     script_content = f'''
 import json
 from pathlib import Path
@@ -50,11 +50,11 @@ from prompt.extract_graph import EXTRACTION_PROMPT
 if "SSL_CERT_FILE" in os.environ:
     os.environ.pop("SSL_CERT_FILE")
 
-# 동적 경로 설정
+# Dynamic path configuration
 input_path = "{input_file}"
 output_path = "{output_file}"
 
-# 설정 로드
+# Load configuration
 from config import get_config
 config = get_config()
 
@@ -94,22 +94,22 @@ def call_model(client: openai.OpenAI, model: str, chunk: str, index: int) -> dic
         print(f"Error processing chunk {{index}}: {{e}}")
         return {{"index": index, "result": "[]"}}
 
-# 메인 실행
+# Main execution
 if not os.path.exists(input_path):
-    print(f"입력 파일을 찾을 수 없습니다: {{input_path}}")
+    print(f"Input file not found: {{input_path}}")
     exit(1)
 
 with open(input_path, 'r', encoding='utf-8') as f:
     text = f.read()
 
 chunks = chunk_text(text, MAX_TOKENS, OVERLAP, MODEL_NAME)
-print(f"📊 총 {{len(chunks)}}개 청크로 분할")
+print(f"📊 Split into {{len(chunks)}} chunks")
 
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
 results = [None] * len(chunks)
 pending_indices = list(range(len(chunks)))
 
-# 기존 결과 로드 (있다면)
+# Load existing results (if any)
 if os.path.exists(output_path):
     with open(output_path, 'r', encoding='utf-8') as f:
         try:
@@ -122,7 +122,7 @@ if os.path.exists(output_path):
         except:
             pass
 
-print(f"🔄 {{len(pending_indices)}}개 청크 처리 중...")
+print(f"🔄 Processing {{len(pending_indices)}} chunks...")
 
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     futures = {{
@@ -137,10 +137,10 @@ with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(results, f, indent=2)
 
-print(f"✅ 트리플 추출 완료: {{output_path}}")
+print(f"✅ Triple extraction completed: {{output_path}}")
 '''
     
-    # 임시 스크립트 파일 생성 및 실행
+    # Create and execute temporary script file
     temp_script = "temp_extract_triples.py"
     try:
         with open(temp_script, "w", encoding="utf-8") as f:
@@ -153,15 +153,15 @@ print(f"✅ 트리플 추출 완료: {{output_path}}")
             os.remove(temp_script)
 
 def convert_to_gexf(json_file: str, gexf_file: str) -> bool:
-    """JSON을 GEXF로 변환"""
-    print(f"🔗 GEXF 변환: {json_file} → {gexf_file}")
+    """Convert JSON to GEXF"""
+    print(f"🔗 GEXF conversion: {json_file} → {gexf_file}")
     return run_command(["python", "index/json_to_gexf.py", json_file, gexf_file])
 
 def build_faiss_index(gexf_file: str, json_file: str, index_file: str, payload_file: str) -> bool:
-    """FAISS 인덱스 생성"""
-    print(f"🔍 FAISS 인덱스 생성: {gexf_file}")
+    """Create FAISS index"""
+    print(f"🔍 Creating FAISS index: {gexf_file}")
     
-    # edge_embedding.py를 동적으로 수정하여 실행
+    # Dynamically modify and execute edge_embedding.py
     script_content = f'''
 import os
 import json
@@ -174,7 +174,7 @@ from tqdm import tqdm
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# 동적 경로 설정
+# Dynamic path configuration
 GEXF_PATH = "{gexf_file}"
 INDEX_PATH = "{index_file}"
 PAYLOAD_PATH = "{payload_file}"
@@ -190,7 +190,7 @@ if "SSL_CERT_FILE" in os.environ:
 Edge = Tuple[str, str, str, str, str]
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
-    raise ValueError("환경 변수 OPENAI_API_KEY를 설정해야 합니다.")
+    raise ValueError("Environment variable OPENAI_API_KEY must be set.")
 
 def build_sent2chunk(graph_json_path: str) -> Dict[str, int]:
     with open(graph_json_path, encoding="utf-8") as f:

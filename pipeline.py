@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-KGRAG 통합 파이프라인 스크립트
-모든 단계를 순차적으로 실행하여 데이터 흐름을 자동화합니다.
+KGRAG integrated pipeline script
+Automates data flow by executing all steps sequentially.
 """
 
 import sys
@@ -10,7 +10,7 @@ import argparse
 from pathlib import Path
 import json
 
-# 프로젝트 루트 설정
+# Set project root
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "index"))

@@ -83,7 +83,7 @@ kg_first_set = set(indices[: N // 2])
 
 
 def extract_json_from_response(response_text: str) -> str:
-    """```json ...``` 또는 JSON 본문만 추출"""
+    """Extract ```json ...``` or JSON body only"""
     if response_text.strip().startswith("```"):
         m = re.search(r"```(?:json)?\s*(\{.*\})\s*```", response_text, re.DOTALL)
         if m:
@@ -91,7 +91,7 @@ def extract_json_from_response(response_text: str) -> str:
     return response_text.strip()
 
 def judge_one(idx: int, g_answer: dict, l_answer: dict) -> tuple[int, dict]:
-    """한 쌍(query)의 평가를 수행하고 (idx, result_dict) 반환"""
+    """Perform evaluation on one pair (query) and return (idx, result_dict)"""
     query = g_answer["query"]
 
     if idx in kg_first_set:

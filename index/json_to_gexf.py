@@ -6,14 +6,14 @@ import re
 import argparse
 
 def clean_id(text: str) -> str:
-    """노드 ID용: 공백, 특수문자 제거 및 소문자화"""
+    """For node ID: remove spaces, special characters and convert to lowercase"""
     if not isinstance(text, str):
         text = str(text)
     text = text.lower()
     return re.sub(r"[^\w\-\.]", "_", text)
 
 def is_valid(item: dict) -> bool:
-    """triplet 형식이 맞는지 검증"""
+    """Validate triplet format"""
     return (
         isinstance(item, dict)
         and "triple" in item and isinstance(item["triple"], list) and len(item["triple"]) == 3
@@ -21,7 +21,7 @@ def is_valid(item: dict) -> bool:
     )
 
 # ─────────────────────────────────────────────────────────────────────
-# ✅ 메인 실행부: JSON → GEXF 변환
+# ✅ Main execution: JSON → GEXF conversion
 # ─────────────────────────────────────────────────────────────────────
 
 def convert_json_to_gexf(input_file: str, output_file: str = None):

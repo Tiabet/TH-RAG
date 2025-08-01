@@ -14,7 +14,7 @@ import networkx as nx
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# 프로젝트 루트를 경로에 추가
+# Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -24,7 +24,7 @@ from index.subtopic_choice import choose_subtopics_for_topic
 
 load_dotenv()
 
-# ---------- 하드코딩/경로 ----------
+# ---------- Hardcoded/Paths ----------
 GEXF_PATH = "MultihopRAG/graph_v1.gexf"
 KV_JSON_PATH = "MultihopRAG/kv_store_text_chunks.json"
 GRAPH_JSON_PATH = "MultihopRAG/graph_v1.json"
