@@ -23,7 +23,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 MAX_WORKERS = 30         # 스레드 개수(네트워크·API 한도에 맞춰 조절)
 RANDOM_SEED = 42           # 재현성 필요 시 None 대신 정수
-model_name = "gpt-4o-mini"  # 사용할 모델 이름
+# 설정 로드
+from config import get_config
+config = get_config()
+
+model_name = config.eval_model  # 사용할 모델 이름
 # ──────────────────────────────────────────────────
 
 import os
@@ -99,9 +103,9 @@ def judge_one(idx: int, g_answer: dict, l_answer: dict) -> tuple[int, dict]:
 
     prompt = EVALUATION_PROMPT.format(query=query, answer1=answer1, answer2=answer2)
     response = client.chat.completions.create(
-        model=  model_name,
+        model=model_name,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0
+        temperature=config.eval_temperature
     )
     raw_content = response.choices[0].message.content.strip()
 

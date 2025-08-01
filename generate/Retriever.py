@@ -89,7 +89,17 @@ class Retriever:
 
         self.thread_workers = thread_workers
 
-    def retrieve(self, query: str, top_k1: int = 50, top_k2: int = 5) -> Dict[str, List[str]]:
+    def retrieve(self, query: str, top_k1: int = None, top_k2: int = None) -> Dict[str, List[str]]:
+        # 기본값 설정
+        if top_k1 is None:
+            from config import get_config
+            config = get_config()
+            top_k1 = config.top_k1
+        if top_k2 is None:
+            from config import get_config
+            config = get_config()
+            top_k2 = config.top_k2
+            
         print("=== Retrieval ===")
         topics = choose_topics_from_graph(query, self.graph, self.client)
         print("topics:", topics)

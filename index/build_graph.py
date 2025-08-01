@@ -54,13 +54,17 @@ if "SSL_CERT_FILE" in os.environ:
 input_path = "{input_file}"
 output_path = "{output_file}"
 
-MODEL_NAME = "gpt-4o-mini"
-MAX_TOKENS = 1200
-OVERLAP = 100
-MAX_WORKERS = 10
+# 설정 로드
+from config import get_config
+config = get_config()
+
+MODEL_NAME = config.default_model
+MAX_TOKENS = config.alt_max_tokens  # Alternative chunking settings
+OVERLAP = config.alt_overlap
+MAX_WORKERS = config.max_workers
 
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = config.openai_api_key
 
 def chunk_text(text: str, max_tokens: int, overlap: int, model: str) -> List[str]:
     enc = tiktoken.encoding_for_model(model)

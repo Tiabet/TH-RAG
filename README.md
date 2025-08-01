@@ -81,7 +81,34 @@ KGRAG/
 
 ## 🔧 사용법
 
-### 1. 그래프 인덱스 구축 🏗️
+### 1. 환경 설정 ⚙️
+
+```bash
+# .env 파일 생성 (설정 템플릿 복사)
+cp .env.example .env
+
+# 또는 테스트 스크립트로 샘플 생성
+python test_config.py --create-env
+
+# .env 파일에서 API 키 설정
+# OPENAI_API_KEY=your_actual_api_key_here
+```
+
+**주요 설정 항목:**
+- `OPENAI_API_KEY`: OpenAI API 키 (필수)
+- `DEFAULT_MODEL`: 기본 사용 모델 (기본값: gpt-4o-mini)
+- `TOP_K1`, `TOP_K2`: RAG 검색 파라미터 (기본값: 50, 10)
+- `TOPIC_CHOICE_MIN/MAX`: 토픽 선택 개수 범위 (기본값: 5-10)
+- `SUBTOPIC_CHOICE_MIN/MAX`: 서브토픽 선택 개수 범위 (기본값: 10-25)
+- `MAX_TOKENS`, `OVERLAP`: 텍스트 청킹 설정 (기본값: 3000, 300)
+- `TEMPERATURE`: 모델 생성 온도 (기본값: 0.5)
+
+```bash
+# 설정 확인
+python test_config.py
+```
+
+### 2. 그래프 인덱스 구축 🏗️
 
 먼저 텍스트 데이터에서 지식 그래프를 구축하고 FAISS 인덱스를 생성합니다.
 
@@ -93,7 +120,7 @@ KGRAG/
 - `edge_index_v1.faiss` - FAISS 벡터 인덱스
 - `edge_payloads_v1.npy` - 메타데이터
 
-### 2. 답변 생성 🤖
+### 3. 답변 생성 🤖
 
 구축된 그래프를 사용하여 질문에 대한 답변을 생성합니다.
 

@@ -26,10 +26,13 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-DEFAULT_MODEL = "gpt-4o-mini"  # same as the rest of the code‑base
-TOPIC_CHOICE_MIN = 5
-TOPIC_CHOICE_MAX = 10
-MAX_RETRIES = 10
+from config import get_config
+config = get_config()
+
+DEFAULT_MODEL = config.default_model
+TOPIC_CHOICE_MIN = config.topic_choice_min
+TOPIC_CHOICE_MAX = config.topic_choice_max
+MAX_RETRIES = config.max_retries
 # ---------------------------------------------------------------------------
 # Core helpers
 # ---------------------------------------------------------------------------
@@ -93,7 +96,7 @@ def choose_topics_from_graph(
                 {"role": "user", "content": prompt_str},
             ],
             response_format={"type": "json_object"},
-            temperature=0.3,
+            temperature=config.answer_temperature,
         )
 
         content = response.choices[0].message.content

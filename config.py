@@ -7,6 +7,10 @@ from pathlib import Path
 import os
 import json
 from typing import Dict, Optional
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
 
 class KGRAGConfig:
     """KGRAG 프로젝트 설정 관리 클래스"""
@@ -26,8 +30,65 @@ class KGRAGConfig:
         self.evaluated_results_dir = self.results_dir / "evaluated"
         self.chunks_dir = self.results_dir / "chunks"
         
+        # 환경 변수에서 설정 로드
+        self._load_config()
+        
         # 디렉터리 생성
         self._ensure_directories()
+        
+    def _load_config(self):
+        """환경 변수에서 설정을 로드합니다."""
+        # API 설정
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        
+        # 모델 설정
+        self.default_model = os.getenv("DEFAULT_MODEL", "gpt-4o-mini")
+        self.embed_model = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+        self.chat_model = os.getenv("CHAT_MODEL", "gpt-4o-mini")
+        self.eval_model = os.getenv("EVAL_MODEL", "gpt-4o-mini")
+        
+        # 모델 파라미터
+        self.temperature = float(os.getenv("TEMPERATURE", "0.5"))
+        self.max_tokens_response = int(os.getenv("MAX_TOKENS_RESPONSE", "2000"))
+        self.answer_temperature = float(os.getenv("ANSWER_TEMPERATURE", "0.3"))
+        self.answer_max_tokens = int(os.getenv("ANSWER_MAX_TOKENS", "1000"))
+        self.eval_temperature = float(os.getenv("EVAL_TEMPERATURE", "0.1"))
+        
+        # 텍스트 처리 설정
+        self.max_tokens = int(os.getenv("MAX_TOKENS", "3000"))
+        self.overlap = int(os.getenv("OVERLAP", "300"))
+        self.max_workers = int(os.getenv("MAX_WORKERS", "10"))
+        self.alt_max_tokens = int(os.getenv("ALT_MAX_TOKENS", "1200"))
+        self.alt_overlap = int(os.getenv("ALT_OVERLAP", "100"))
+        
+        # 토픽/서브토픽 선택 설정
+        self.topic_choice_min = int(os.getenv("TOPIC_CHOICE_MIN", "5"))
+        self.topic_choice_max = int(os.getenv("TOPIC_CHOICE_MAX", "10"))
+        self.subtopic_choice_min = int(os.getenv("SUBTOPIC_CHOICE_MIN", "10"))
+        self.subtopic_choice_max = int(os.getenv("SUBTOPIC_CHOICE_MAX", "25"))
+        
+        # 재시도 설정
+        self.max_retries = int(os.getenv("MAX_RETRIES", "10"))
+        self.retry_backoff = float(os.getenv("RETRY_BACKOFF", "0.2"))
+        
+        # RAG 검색 파라미터
+        self.top_k1 = int(os.getenv("TOP_K1", "50"))
+        self.top_k2 = int(os.getenv("TOP_K2", "10"))
+        self.top_k1_long = int(os.getenv("TOP_K1_LONG", "25"))
+        self.top_k2_long = int(os.getenv("TOP_K2_LONG", "5"))
+        self.embedding_top_k = int(os.getenv("EMBEDDING_TOP_K", "5"))
+        self.overretrieve_factor = int(os.getenv("OVERRETRIEVE_FACTOR", "5"))
+        
+        # 컨텍스트 설정
+        self.max_context_length = int(os.getenv("MAX_CONTEXT_LENGTH", "4000"))
+        
+        # 시스템 설정
+        self.log_level = os.getenv("LOG_LEVEL", "INFO")
+        self.log_file = os.getenv("LOG_FILE", "kgrag.log")
+        self.batch_size = int(os.getenv("BATCH_SIZE", "32"))
+        self.timeout_seconds = int(os.getenv("TIMEOUT_SECONDS", "30"))
+        self.enable_cache = os.getenv("ENABLE_CACHE", "true").lower() == "true"
+        self.cache_ttl = int(os.getenv("CACHE_TTL", "3600"))
     
     def _ensure_directories(self):
         """필요한 디렉터리들을 생성합니다."""

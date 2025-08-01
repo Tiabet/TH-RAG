@@ -19,9 +19,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # 설정 import
 from config import get_config
 
+# 설정 로드
+config = get_config()
+
 # 임베딩 모델 설정
-EMBEDDING_MODEL = "text-embedding-3-small"
-MAX_WORKERS = 50
+EMBEDDING_MODEL = config.embed_model
+MAX_WORKERS = config.max_workers
 
 # Load environment variables
 load_dotenv()
@@ -165,16 +168,25 @@ class EdgeEmbedderFAISS:
     def search(
         self,
         query: str,
-        top_k: int = 5,
+        top_k: int = None,
         filter_entities: Set[str] | None = None,
-        overretrieve: int = 5,          # 필터용 여유 검색 개수(top_k*overretrieve)
+        overretrieve: int = None,
     ) -> List[Dict]:
         """
-        query         : 검색할 문장
-        top_k         : 최종으로 돌려줄 결과 수
-        filter_entities : {"E1", "E2"} 형태. 있으면 source/target 기준으로 필터
-        overretrieve  : 필터가 있을 때 넉넉히 가져올 배수
+        쿼리에 맞는 관련 엣지를 검색합니다.
+        
+        Args:
+            query: 검색 쿼리
+            top_k: 최종으로 돌려줄 결과 수 (기본값: config.embedding_top_k)
+            filter_entities: 필터링할 엔티티 집합 (None이면 필터링 안함)
+            overretrieve: 필터용 여유 검색 개수 (기본값: config.overretrieve_factor)
         """
+        # 기본값 설정
+        if top_k is None:
+            top_k = config.embedding_top_k
+        if overretrieve is None:
+            overretrieve = config.overretrieve_factor
+            
         # 1️⃣ 쿼리 임베딩
         q_vec = self._embed(query).reshape(1, -1)
 

@@ -32,14 +32,15 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # Configurable selection range
 # ---------------------------------------------------------------------------
-SUBTOPIC_CHOICE_MIN = 10
-SUBTOPIC_CHOICE_MAX = 25
+from config import get_config
+config = get_config()
 
+SUBTOPIC_CHOICE_MIN = config.subtopic_choice_min
+SUBTOPIC_CHOICE_MAX = config.subtopic_choice_max
 
-
-DEFAULT_MODEL = "gpt-4o-mini"
-MAX_RETRIES = 5        # ← configurable global
-RETRY_BACKOFF = 0.2      # seconds between retries
+DEFAULT_MODEL = config.default_model
+MAX_RETRIES = config.max_retries
+RETRY_BACKOFF = config.retry_backoff
 
 # ---------------------------------------------------------------------------
 # Graph helpers
@@ -100,7 +101,7 @@ def choose_subtopics_for_topic(
                     {"role": "user", "content": prompt},
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.3,
+                temperature=config.answer_temperature,
                 frequency_penalty=1.2,
             )
             # print(prompt)

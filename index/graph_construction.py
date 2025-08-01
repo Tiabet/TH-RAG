@@ -18,13 +18,15 @@ from config import get_config
 from prompt.topic_choice import get_topic_choice_prompt
 
 # ==== Configuration ====
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-# Note: API key will be checked when actually needed, not at import time
+# 환경 변수에서 설정 로드
+from config import get_config
+config = get_config()
 
-MODEL_NAME = "gpt-4o-mini"
-MAX_TOKENS = 3000
-OVERLAP = 300  
-MAX_WORKERS = 10
+OPENAI_API_KEY = config.openai_api_key
+MODEL_NAME = config.default_model
+MAX_TOKENS = config.max_tokens
+OVERLAP = config.overlap
+MAX_WORKERS = config.max_workers
 
 # ==== Functions ====
 def chunk_text(text, max_tokens, overlap, model_name):
@@ -63,8 +65,8 @@ def call_model(client, model_name, chunk, index):
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": chunk}
             ],
-            temperature=0.5,
-            max_tokens=2000
+            temperature=config.temperature,
+            max_tokens=config.max_tokens_response
         )
         data = json.loads(response.choices[0].message.content.strip())
         if isinstance(data, list):

@@ -21,13 +21,14 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # 설정 import
 from config import get_config
+config = get_config()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = config.openai_api_key
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY env var required.")
 
-EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
-CHAT_MODEL  = os.getenv("CHAT_MODEL",  "gpt-4o-mini")
+EMBED_MODEL = config.embed_model
+CHAT_MODEL  = config.chat_model
 
 class GraphRAG:
     def __init__(self,

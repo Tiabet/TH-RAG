@@ -78,7 +78,17 @@ class GraphRAG:
 
         return "\n".join(parts)
 
-    def answer(self, query: str, top_k1: int = 50, top_k2: int = 10) -> str:
+    def answer(self, query: str, top_k1: int = None, top_k2: int = None) -> str:
+        # 기본값 설정
+        if top_k1 is None:
+            from config import get_config
+            config = get_config()
+            top_k1 = config.top_k1_long
+        if top_k2 is None:
+            from config import get_config
+            config = get_config()
+            top_k2 = config.top_k2_long
+            
         start_time = time.time()
         out = self.retriever.retrieve(query, top_k1=top_k1, top_k2=top_k2)
         end_time = time.time()
