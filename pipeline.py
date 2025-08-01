@@ -21,16 +21,16 @@ from config import get_config
 
 def run_pipeline(dataset_name: str, steps: list = None, force_rebuild: bool = False):
     """
-    KGRAG 파이프라인 실행
+    Execute KGRAG pipeline
     
     Args:
-        dataset_name: 처리할 데이터셋 이름
-        steps: 실행할 단계 리스트 (None이면 모든 단계)
-        force_rebuild: 기존 결과가 있어도 강제로 재실행
+        dataset_name: Name of dataset to process
+        steps: List of steps to execute (None for all steps)
+        force_rebuild: Force re-execution even if existing results exist
     """
     config = get_config(dataset_name)
     
-    # 사용 가능한 단계들
+    # Available steps
     available_steps = [
         'graph_construction',
         'json_to_gexf', 

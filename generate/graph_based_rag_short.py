@@ -3,23 +3,23 @@ from typing import List, Dict
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 프로젝트 루트를 경로에 추가
+# Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from Retriever import Retriever
 from prompt.answer_short import ANSWER_PROMPT
 
-# ── 환경변수 및 경로 ───────────────────────────────────────────────────
+# ── Environment variables and paths ───────────────────────────────────────────────────
 load_dotenv()
 import sys
 from pathlib import Path
 
-# 프로젝트 루트 설정
+# Set project root
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# 설정 import
+# Import configuration
 from config import get_config
 config = get_config()
 

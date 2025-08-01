@@ -6,18 +6,18 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import tiktoken
 
-# 프로젝트 루트 설정
+# Set project root
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 os.chdir(PROJECT_ROOT)
 
-# 설정 import
+# Import configuration
 from config import get_config
 
 enc = tiktoken.encoding_for_model("gpt-4o")
 
 # Default settings
-MAX_WORKERS = 30  # 병렬 처리 스레드 수
+MAX_WORKERS = 30  # Number of parallel processing threads
 TOP_K1 = 30
 TOP_K2 = 5
 
@@ -26,13 +26,13 @@ def main(dataset_name: str, input_path_param: str = None, output_path_param: str
     Main function for answer generation (short)
     
     Args:
-        dataset_name: 데이터셋 이름
-        input_path_param: 입력 파일 경로 (선택사항)
-        output_path_param: 출력 파일 경로 (선택사항)
+        dataset_name: Dataset name
+        input_path_param: Input file path (optional)
+        output_path_param: Output file path (optional)
     """
     config = get_config(dataset_name)
     
-    # 경로 설정
+    # Path configuration
     input_path = input_path_param if input_path_param else str(config.get_qa_file())
     output_path = output_path_param if output_path_param else str(config.get_answer_file(answer_type="short"))
     chunk_log_path = str(config.get_chunk_log_file(answer_type="short"))
@@ -42,20 +42,20 @@ def main(dataset_name: str, input_path_param: str = None, output_path_param: str
     print(f"📂 Input: {input_path}")
     print(f"💾 Output: {output_path}")
     
-    # 결과 디렉터리 생성
+    # Create result directories
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     os.makedirs(os.path.dirname(chunk_log_path), exist_ok=True)
 
-    # GraphRAG 인스턴스
+    # GraphRAG instance
     rag = GraphRAG(dataset_name=dataset_name)
 
     chunk_log_file = open(chunk_log_path, "w", encoding="utf-8")
 
-    # 입력 로딩
+    # Load input
     with open(input_path, 'r', encoding='utf-8') as f:
         questions = json.load(f)
 
-    # 결과 저장 리스트 (index 순서 보존)
+    # Result storage list (preserve index order)
     output_data = [None] * len(questions)
 
     # 작업 함수

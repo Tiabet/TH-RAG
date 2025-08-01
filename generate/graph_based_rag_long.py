@@ -4,14 +4,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 import tiktoken
 
-# 프로젝트 루트를 경로에 추가
+# Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from Retriever import Retriever
 from prompt.answer import ANSWER_PROMPT
 
-# ── 환경변수 및 경로 ───────────────────────────────────────────────────
+# ── Environment variables and paths ───────────────────────────────────────────────────
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:

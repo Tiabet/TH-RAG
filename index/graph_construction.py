@@ -8,17 +8,17 @@ import openai
 import tiktoken
 import argparse
 
-# 프로젝트 루트 설정
+# Set project root
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "prompt"))
 
-# 설정 및 프롬프트 import
+# Import configuration and prompts
 from config import get_config
 from prompt.topic_choice import get_topic_choice_prompt
 
 # ==== Configuration ====
-# 환경 변수에서 설정 로드
+# Load configuration from environment variables
 from config import get_config
 config = get_config()
 

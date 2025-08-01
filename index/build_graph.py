@@ -296,7 +296,7 @@ class EdgeEmbedderFAISS:
         faiss.write_index(self.index, self.index_path)
         np.save(self.payload_path, np.array(self.payloads, dtype=object))
 
-# 실행
+# Execute
 embedder = EdgeEmbedderFAISS(
     gexf_path=GEXF_PATH,
     json_path=JSON_PATH,
@@ -308,10 +308,10 @@ embedder = EdgeEmbedderFAISS(
 
 if not os.path.exists(INDEX_PATH):
     embedder.build_index()
-    print("FAISS index & payloads 생성 완료.")
+    print("FAISS index & payloads creation completed.")
 '''
     
-    # 임시 스크립트 파일 생성 및 실행
+    # Create and execute temporary script file
     temp_script = "temp_build_index.py"
     try:
         with open(temp_script, "w", encoding="utf-8") as f:

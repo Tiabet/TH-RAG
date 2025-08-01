@@ -52,25 +52,25 @@ def test_config():
         print(f"   Top-K1: {config.top_k1}")
         print(f"   Top-K2: {config.top_k2}")
         
-        # 토픽/서브토픽 설정
-        print(f"\n📋 토픽 설정:")
-        print(f"   Topic 선택 범위: {config.topic_choice_min}-{config.topic_choice_max}")
-        print(f"   Subtopic 선택 범위: {config.subtopic_choice_min}-{config.subtopic_choice_max}")
+        # Topic/Subtopic configuration
+        print(f"\n📋 Topic Configuration:")
+        print(f"   Topic selection range: {config.topic_choice_min}-{config.topic_choice_max}")
+        print(f"   Subtopic selection range: {config.subtopic_choice_min}-{config.subtopic_choice_max}")
         
-        # 시스템 설정
-        print(f"\n🔧 시스템 설정:")
+        # System configuration
+        print(f"\n🔧 System Configuration:")
         print(f"   Max Workers: {config.max_workers}")
         print(f"   Log Level: {config.log_level}")
         print(f"   Batch Size: {config.batch_size}")
         
-        print(f"\n✅ 모든 설정이 정상적으로 로드되었습니다!")
+        print(f"\n✅ All configurations loaded successfully!")
         
     except Exception as e:
-        print(f"❌ Config 로드 실패: {e}")
+        print(f"❌ Config loading failed: {e}")
         return
     
-    # 환경 변수 직접 확인
-    print(f"\n🌍 환경 변수 확인:")
+    # Direct environment variable check
+    print(f"\n🌍 Environment Variable Check:")
     env_vars = [
         "OPENAI_API_KEY", "DEFAULT_MODEL", "EMBED_MODEL", "CHAT_MODEL",
         "TEMPERATURE", "MAX_TOKENS", "TOP_K1", "TOP_K2",
@@ -135,14 +135,14 @@ TIMEOUT_SECONDS=30
     with open(".env", "w", encoding="utf-8") as f:
         f.write(env_content)
     
-    print("✅ .env 파일이 생성되었습니다!")
-    print("⚠️ OPENAI_API_KEY를 실제 API 키로 교체해주세요!")
+    print("✅ .env file has been created!")
+    print("⚠️ Please replace OPENAI_API_KEY with your actual API key!")
 
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="KGRAG 설정 테스트")
-    parser.add_argument("--create-env", action="store_true", help="샘플 .env 파일 생성")
+    parser = argparse.ArgumentParser(description="KGRAG configuration test")
+    parser.add_argument("--create-env", action="store_true", help="Create sample .env file")
     
     args = parser.parse_args()
     

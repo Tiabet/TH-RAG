@@ -12,17 +12,17 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import argparse
 
-# 프로젝트 루트 설정
+# Set project root
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# 설정 import
+# Import configuration
 from config import get_config
 
-# 설정 로드
+# Load configuration
 config = get_config()
 
-# 임베딩 모델 설정
+# Embedding model configuration
 EMBEDDING_MODEL = config.embed_model
 MAX_WORKERS = config.max_workers
 
