@@ -130,12 +130,6 @@ class GraphRAG:
         resp = self.client.chat.completions.create(
             model=self.chat_model,
             messages=[
-                {"role": "system",
-                 "content": (
-                     "Your responses should be **long, comprehensive, diverse, and empowering**, drawing deeply from the provided information. "
-                     "Always aim to synthesize the information meaningfully, avoiding surface-level summaries. "
-                     "Be analytical and thoughtful. Your goal is not just to answer, but to **educate and inform** using the full richness of the input data."
-                 )},
                 {"role": "user", "content": prompt},
             ],
             temperature=1.0,
