@@ -1,4 +1,4 @@
-# KGRAG - Knowledge Graph-based Retrieval Augmented Generation
+# TH-RAG : Topic-Based Hierarchical Knowledge Graphs for Robust Multi-hop Reasoning in Graph-based RAG Systems
 
 A knowledge graph–based RAG (Retrieval-Augmented Generation) system.
 
