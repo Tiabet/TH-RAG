@@ -1,56 +1,111 @@
-## Qualitative Analysis of Retrieval Performance
+# Qualitative Analysis of Retrieval Performance
 
-We conducted an in-depth analysis of the retrieval mechanism using the HotpotQA dataset, focusing on both successful and failed queries to understand the system's behavior.
+We conducted an in-depth analysis of the retrieval mechanism using the **HotpotQA** dataset, examining both successful and failed queries to understand system behavior.
 
-### Success Cases
+---
 
-**1. McLemore Avenue (Implicit Success)**
-*   **Query**: "McLemore Avenue is to Booker T. & the M.G.s as what road in the city of Westminster in London is to the Beatles?"
-*   **Result**
+## ✅ Success Cases
+
+### **1. McLemore Avenue (Implicit Success)**
+
+**Query**  
+> "McLemore Avenue is to Booker T. & the M.G.s as what road in the city of Westminster in London is to the Beatles?"
+
+**Retrieved Facts**
+
+**Fact 1 — McLemore Avenue**  
+- **Found in graph**   
+- **Entities**
+  - McLemore Avenue — *Topic: Music* (**HIT**) / *Subtopic: Album* (**HIT**)  
+  - The Beatles album — *Topic: Music* (**HIT**) / *Subtopic: Album* (**HIT**)  
+→ **COVERED** 
+
+**Fact 2 — Abbey Road (London)**  
+- **Not found in graph**   
+→ Missing node in `graph_v1.json`
+
+**Insight**  
+> Even when the gold supporting fact is missing, the context-expansion method using semantically similar sentences enables the system to overcome gaps in the graph.
+
+---
+
+### **2. Istanbul Mosque (Perfect Recall)**
+
+**Query**  
+> "Which Istanbul mosque is unique for retaining a Baroque style of architecture, the Bayezid II Mosque or the Nusretiye Mosque?"
+
+**Retrieved Facts**
+
+**Fact 1 — Bayezid II Mosque**  
+- **Found in graph**   
+- **Entities**
+  - Bayezid II Mosque — *Topic: Architecture* (**HIT**) / *Subtopic: Ottoman Imperial Mosque* (**HIT**)  
+  - Beyazıt Square — *Topic: Geography* (**HIT**) / *Subtopic: Location* (**HIT**)  
+→ **COVERED** 
+
+**Fact 2 — Nusretiye Mosque**  
+- **Found in graph**   
+- **Entities**
+  - Nusretiye Mosque — *Topic: Religion* (**HIT**) / *Subtopic: Mosque* (**HIT**)  
+  - Tophane district — *Topic: Geography* (**HIT**) / *Subtopic: Location* (**HIT**)  
+→ **COVERED** 
+
+**Insight**  
+> This shows that the LLM can infer from the query that it must select the topic/subtopic related to the Baroque style, and that TH-RAG ensures complete context for answer generation by subsequently retrieving all the appropriate supporting facts.
+
+---
+
+## ❌ Failure Cases & Root Cause Analysis
+
+### **1. Fastjet Tanzania (Graph Construction Gap)**
+
+**Query**  
+> "In what city is the company that Fastjet Tanzania was originally founded as a part of prior to rebranding based?"
+
+**Retrieved Facts**
+- *Fastjet Tanzania* — **Not found**   
+- *Fly540* — **Not found**   
+
+**Root Cause**  
+### Graph Construction Failure  
+The founding-information sentence was **not extracted** as a triple during graph construction. Although some related chunks appeared, the **exact supporting fact** was absent.
+This case demonstrates the limitations of covering the incompleteness of graph construction through context expansion and semantic filtering.
+
+---
+
+### **2. NYC Buildings (Granularity Mismatch)**
+
+**Query**  
+> "The 19 high-rise commercial buildings covering 22 acres between 48th and 51st Streets in New York City feature which style of architecture?"
+
+**Retrieved Facts**
+
+- **Art Deco in the United States** — general description — **COVERED**   
+- **Art Deco examples in NYC** — **PARTIALLY COVERED**   
+- **Rockefeller Center** — **NOT COVERED**
   
-Fact: [McLemore Avenue]  The title and cover are an homage to the Beatles album, 926 East McLemore Avenue being the address ...
-  ✅ Found in graph. Associated Entities:
-    - McLemore Avenue (subject)
-      Topic: Music [HIT]
-      Subtopic: Album [HIT]
-    - the Beatles album (object)
-      Topic: Music [HIT]
-      Subtopic: Album [HIT]
-  => 🟢 This fact is COVERED by the retrieved topics/subtopics.
+**Root Cause**  
+###  Subtopic Choice Failure  
+The system correctly identified the broad topic (*Architecture*), but failed to select the specific subtopics to which the core entity is connected such as:  
+- *Skyscrapers*  
+- *Commercial Complex*  
+- *Building Count*  
 
-Fact: [Abbey Road, London]  This road is best known for the Abbey Road Studios and the 1969 album, "Abbey Road", by The Beatles...
-  ❌ This fact was NOT found in the graph construction data (graph_v1.json).
+As a result, the critical Rockefeller Center evidence was not retrieved.
+This is a typical failure case for TH-RAG, where graph traversal often fails when the query requires selecting too many topics or when hops with completely different topics are included in the query. 
 
-*   **Insight**:This shows that even when the gold supporting fact is missing from the graph, the context-expansion method using semantically similar sentences can effectively address the problem of an incomplete graph.
 
-**2. Istanbul Mosque (Perfect Recall)**
-*   **Query**: "Which Istanbul mosque is unique for retaining a Baroque style of architecture, the Bayezid II Mosque or the Nusretiye Mosque?"
-*   **Result**: The TH-RAG retrieved both ground truth chunks required to answer the comparison question.
-*   **Insight**: This shows that the LLM can infer from the query that it must select the topic/subtopic related to the Baroque style, and that TH-RAG ensures complete context for answer generation by subsequently retrieving all the appropriate supporting facts.
+---
 
-### Failure Cases & Root Cause Analysis
 
-**1. Fastjet Tanzania (Graph Construction Gap)**
-*   **Query**: "In what city is the company that Fastjet Tanzania was originally founded as a part of prior to rebranding based?"
-*   **Result**: **Recall 0/1**. The TH-RAG failed to retrieve the specific ground truth chunk.
-*   **Root Cause**: **Graph Construction Failure**. The specific sentence containing the founding details was not extracted as a triple during the graph construction phase. Although the system retrieved a chunk with similar keywords ("Fastjet Tanzania"), it missed the exact fact required.
 
-**2. NYC Buildings (Granularity Mismatch)**
-*   **Query**: "The 19 high-rise commercial buildings covering 22 acres between 48th and 51st Streets in New York City feature which style of architecture?"
-*   **Result**: **Recall 1/2**. The TH-RAG retrieved only one of the two necessary chunks.
-*   **Root Cause**: **Subtopic Choice Failure**. While the system correctly identified the broad Topic (`Architecture`), it failed to select the specific Subtopics (`Skyscrapers`, `Commercial Complex`) needed to retrieve the second chunk about "Rockefeller Center".
+
+
+
 
 # TH-RAG : Topic-Based Hierarchical Knowledge Graphs for Robust Multi-hop Reasoning in Graph-based RAG Systems
 
 A knowledge graph–based RAG (Retrieval-Augmented Generation) system.
-
-
-
-
-
-
-
-
 
 ## 🚀 Quick Start
 
