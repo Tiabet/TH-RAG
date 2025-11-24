@@ -1,3 +1,31 @@
+## Qualitative Analysis of Retrieval Performance
+
+We conducted an in-depth analysis of the retrieval mechanism using the HotpotQA dataset, focusing on both successful and failed queries to understand the system's behavior.
+
+### Success Cases
+
+**1. McLemore Avenue (Implicit Success)**
+*   **Query**: "McLemore Avenue is to Booker T. & the M.G.s as what road in the city of Westminster in London is to the Beatles?"
+*   **Result**: The system successfully retrieved relevant chunks and generated the correct answer, despite the HotpotQA dataset lacking explicit "Gold Chunk" mappings for this specific query.
+*   **Insight**: This demonstrates the system's robustness in finding relevant information even when ground truth metadata is incomplete, relying effectively on the graph structure to traverse from "McLemore Avenue" to "Abbey Road".
+
+**2. Istanbul Mosque (Perfect Recall)**
+*   **Query**: "Which Istanbul mosque is unique for retaining a Baroque style of architecture, the Bayezid II Mosque or the Nusretiye Mosque?"
+*   **Result**: The system retrieved both ground truth chunks required to answer the comparison question.
+*   **Insight**: The retrieval mechanism correctly identified the relevant entities ("Bayezid II Mosque", "Nusretiye Mosque") and their architectural styles via the Topic/Subtopic hierarchy, ensuring complete context for the answer generation.
+
+### Failure Cases & Root Cause Analysis
+
+**1. Fastjet Tanzania (Graph Construction Gap)**
+*   **Query**: "In what city is the company that Fastjet Tanzania was originally founded as a part of prior to rebranding based?"
+*   **Result**: **Recall 0/1**. The system failed to retrieve the specific ground truth chunk.
+*   **Root Cause**: **Graph Construction Failure**. The specific sentence containing the founding details was not extracted as a triple during the graph construction phase. Although the system retrieved a chunk with similar keywords ("Fastjet Tanzania"), it missed the exact fact required.
+
+**2. NYC Buildings (Granularity Mismatch)**
+*   **Query**: "The 19 high-rise commercial buildings covering 22 acres between 48th and 51st Streets in New York City feature which style of architecture?"
+*   **Result**: **Recall 1/2**. The system retrieved only one of the two necessary chunks.
+*   **Root Cause**: **Subtopic Choice Failure**. While the system correctly identified the broad Topic (`Architecture`), it failed to select the specific Subtopics (`Skyscrapers`, `Commercial Complex`) needed to retrieve the second chunk about "Rockefeller Center".
+
 # TH-RAG : Topic-Based Hierarchical Knowledge Graphs for Robust Multi-hop Reasoning in Graph-based RAG Systems
 
 A knowledge graph–based RAG (Retrieval-Augmented Generation) system.
