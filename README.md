@@ -6,7 +6,8 @@ We conducted an in-depth analysis of the retrieval mechanism using the HotpotQA 
 
 **1. McLemore Avenue (Implicit Success)**
 *   **Query**: "McLemore Avenue is to Booker T. & the M.G.s as what road in the city of Westminster in London is to the Beatles?"
-*   **Result**:
+*   **Result**
+  
 Fact: [McLemore Avenue]  The title and cover are an homage to the Beatles album, 926 East McLemore Avenue being the address ...
   ✅ Found in graph. Associated Entities:
     - McLemore Avenue (subject)
@@ -17,11 +18,10 @@ Fact: [McLemore Avenue]  The title and cover are an homage to the Beatles album,
       Subtopic: Album [HIT]
   => 🟢 This fact is COVERED by the retrieved topics/subtopics.
 
-*   **Insight**:This shows that even when the gold supporting fact is missing from the graph, the context-expansion method using semantically similar sentences can effectively address the problem of an incomplete graph..
-
-
 Fact: [Abbey Road, London]  This road is best known for the Abbey Road Studios and the 1969 album, "Abbey Road", by The Beatles...
   ❌ This fact was NOT found in the graph construction data (graph_v1.json).
+
+*   **Insight**:This shows that even when the gold supporting fact is missing from the graph, the context-expansion method using semantically similar sentences can effectively address the problem of an incomplete graph.
 
 **2. Istanbul Mosque (Perfect Recall)**
 *   **Query**: "Which Istanbul mosque is unique for retaining a Baroque style of architecture, the Bayezid II Mosque or the Nusretiye Mosque?"
