@@ -1,128 +1,176 @@
-import json
-import networkx as nx
-import os
-import html
-import re
+"""Convert extracted graph JSON blocks into a GEXF knowledge graph."""
+
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
 import argparse
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+import networkx as nx
+
 
 def clean_id(text: str) -> str:
-    """For node ID: remove spaces, special characters and convert to lowercase"""
-    if not isinstance(text, str):
-        text = str(text)
-    text = text.lower()
-    return re.sub(r"[^\w\-\.]", "_", text)
+    """Create a deterministic node identifier fragment."""
 
-def is_valid(item: dict) -> bool:
-    """Validate triplet format"""
+    normalized = re.sub(r"\s+", "_", text.strip().lower())
+    return re.sub(r"[^a-z0-9_.-]", "_", normalized)
+
+
+
+def is_valid_triple(item: dict[str, Any]) -> bool:
+    """Validate the minimal triple schema required for graph conversion."""
+
     return (
         isinstance(item, dict)
-        and "triple" in item and isinstance(item["triple"], list) and len(item["triple"]) == 3
-        and "subject" in item and "object" in item
+        and isinstance(item.get("triple"), list)
+        and len(item["triple"]) == 3
+        and isinstance(item.get("subject"), dict)
+        and isinstance(item.get("object"), dict)
     )
 
-# ─────────────────────────────────────────────────────────────────────
-# ✅ Main execution: JSON → GEXF conversion
-# ─────────────────────────────────────────────────────────────────────
 
-def convert_json_to_gexf(input_file: str, output_file: str = None):
-    with open(input_file, 'r', encoding='utf-8') as f:
-        data = json.load(f)
 
-    entries = []
+def load_entries(input_file: Path) -> list[dict[str, Any]]:
+    with input_file.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
 
-    # Case A: 단일 dict 구조
-    if isinstance(data, dict) and "triples" in data:
-        entries.extend([item for item in data["triples"] if is_valid(item)])
+    blocks: list[dict[str, Any]] = []
+    if isinstance(payload, dict) and isinstance(payload.get("triples"), list):
+        blocks.append(payload)
+    elif isinstance(payload, list):
+        blocks.extend(block for block in payload if isinstance(block, dict))
+    else:
+        raise ValueError("Unsupported graph JSON structure.")
 
-    # Case B: 블록 리스트 구조
-    elif isinstance(data, list):
-        for block in data:
-            if isinstance(block, dict) and "triples" in block:
-                entries.extend([item for item in block["triples"] if is_valid(item)])
+    entries: list[dict[str, Any]] = []
+    for block in blocks:
+        chunk_id = str(block.get("chunk_id", ""))
+        for item in block.get("triples", []):
+            if not is_valid_triple(item):
+                continue
+            entries.append({"chunk_id": chunk_id, **item})
+    return entries
 
-    print(f"✅ usable triples: {len(entries)}")
+
+
+def add_labeled_node(graph: nx.Graph, node_id: str, label: str, node_type: str) -> None:
+    graph.add_node(node_id, label=label.strip(), type=node_type)
+
+
+
+def convert_json_to_gexf(input_file: str, output_file: str | None = None) -> str:
+    input_path = Path(input_file)
+    output_path = Path(output_file) if output_file else input_path.with_suffix(".gexf")
+
+    entries = load_entries(input_path)
     if not entries:
-        raise ValueError("No valid triples found—check JSON structure.")
+        raise ValueError(f"No valid triples found in {input_path}")
 
-    # 그래프 생성
-    G = nx.Graph()
-
+    graph = nx.Graph()
     for entry in entries:
-        subj, pred, obj = entry['triple']
-        subj, pred, obj = subj.lower(), pred.lower(), obj.lower()
-        subj_st = entry['subject']['subtopic'].lower()
-        subj_mt = entry['subject']['main_topic'].lower()
-        obj_st = entry['object']['subtopic'].lower()
-        obj_mt = entry['object']['main_topic'].lower()
-        raw_sentence = entry.get('sentence', '')
-        if isinstance(raw_sentence, list) and len(raw_sentence) > 0:
-            sentence = raw_sentence[0].strip()
-        elif isinstance(raw_sentence, str):
-            sentence = raw_sentence.strip()
+        subject_label, predicate_label, object_label = [str(value).strip() for value in entry["triple"]]
+        subject_subtopic = str(entry["subject"].get("subtopic", "")).strip() or "Unknown Subtopic"
+        subject_topic = str(entry["subject"].get("main_topic", "")).strip() or "Unknown Topic"
+        object_subtopic = str(entry["object"].get("subtopic", "")).strip() or "Unknown Subtopic"
+        object_topic = str(entry["object"].get("main_topic", "")).strip() or "Unknown Topic"
+        sentence_value = entry.get("sentence", "")
+        if isinstance(sentence_value, list):
+            sentence = " ".join(str(item).strip() for item in sentence_value if str(item).strip())
         else:
-            sentence = ""
+            sentence = str(sentence_value).strip()
+        chunk_id = str(entry.get("chunk_id", ""))
 
-        # 노드 ID 생성
-        subj_node     = f"entity_{clean_id(subj)}"
-        subj_st_node  = f"subtopic_{clean_id(subj_st)}"
-        subj_mt_node  = f"topic_{clean_id(subj_mt)}"
-        obj_node      = f"entity_{clean_id(obj)}"
-        obj_st_node   = f"subtopic_{clean_id(obj_st)}"
-        obj_mt_node   = f"topic_{clean_id(obj_mt)}"
+        subject_node = f"entity_{clean_id(subject_label)}"
+        subject_subtopic_node = f"subtopic_{clean_id(subject_subtopic)}"
+        subject_topic_node = f"topic_{clean_id(subject_topic)}"
+        object_node = f"entity_{clean_id(object_label)}"
+        object_subtopic_node = f"subtopic_{clean_id(object_subtopic)}"
+        object_topic_node = f"topic_{clean_id(object_topic)}"
 
-        # 노드 추가
-        for node, label, typ in [
-            (subj_node, subj, 'entity'), (subj_st_node, subj_st, 'subtopic'), (subj_mt_node, subj_mt, 'topic'),
-            (obj_node, obj, 'entity'), (obj_st_node, obj_st, 'subtopic'), (obj_mt_node, obj_mt, 'topic')
+        for node_id, label, node_type in [
+            (subject_node, subject_label, "entity"),
+            (subject_subtopic_node, subject_subtopic, "subtopic"),
+            (subject_topic_node, subject_topic, "topic"),
+            (object_node, object_label, "entity"),
+            (object_subtopic_node, object_subtopic, "subtopic"),
+            (object_topic_node, object_topic, "topic"),
         ]:
-            safe_label = label
-            G.add_node(node, label=safe_label.lower(), type=typ)
+            add_labeled_node(graph, node_id, label, node_type)
 
-        # 계층 엣지
-        G.add_edge(subj_node, subj_st_node, label='has_subtopic', relation_type='subtopic_relation', topic=subj_mt)
-        G.add_edge(subj_st_node, subj_mt_node, label='has_topic', relation_type='topic_relation')
-        G.add_edge(obj_node, obj_st_node, label='has_subtopic', relation_type='subtopic_relation', topic=obj_mt)
-        G.add_edge(obj_st_node, obj_mt_node, label='has_topic', relation_type='topic_relation')
+        graph.add_edge(
+            subject_node,
+            subject_subtopic_node,
+            label="has_subtopic",
+            relation_type="subtopic_relation",
+        )
+        graph.add_edge(
+            subject_subtopic_node,
+            subject_topic_node,
+            label="has_topic",
+            relation_type="topic_relation",
+        )
+        graph.add_edge(
+            object_node,
+            object_subtopic_node,
+            label="has_subtopic",
+            relation_type="subtopic_relation",
+        )
+        graph.add_edge(
+            object_subtopic_node,
+            object_topic_node,
+            label="has_topic",
+            relation_type="topic_relation",
+        )
 
-        # 문장 및 predicate 엣지
-        safe_sentence = sentence
-        safe_pred     = pred.lower()
-        
-        if G.has_edge(subj_node, obj_node):
-            existing = G[subj_node][obj_node]
-            if safe_pred and safe_pred not in existing['label']:
-                existing['label'] += f" / {safe_pred}"
-            if safe_sentence and safe_sentence not in existing['sentence']:
-                existing['sentence'] += f" / {safe_sentence}"
-            existing['weight'] = existing.get('weight', 1) + 1
+        if graph.has_edge(subject_node, object_node):
+            edge = graph[subject_node][object_node]
+            labels = set(filter(None, str(edge.get("label", "")).split(" / ")))
+            sentences = set(filter(None, str(edge.get("sentence", "")).split(" / ")))
+            chunk_ids = set(filter(None, str(edge.get("chunk_ids", "")).split(" / ")))
+
+            if predicate_label:
+                labels.add(predicate_label)
+            if sentence:
+                sentences.add(sentence)
+            if chunk_id:
+                chunk_ids.add(chunk_id)
+
+            edge["label"] = " / ".join(sorted(labels))
+            edge["sentence"] = " / ".join(sorted(sentences))
+            edge["chunk_ids"] = " / ".join(sorted(chunk_ids))
+            edge["relation_type"] = "predicate_relation"
+            edge["weight"] = int(edge.get("weight", 1)) + 1
         else:
-            G.add_edge(
-                subj_node,
-                obj_node,
-                label=safe_pred,
-                relation_type='predicate_relation',
-                sentence=safe_sentence,
-                weight=1
+            graph.add_edge(
+                subject_node,
+                object_node,
+                label=predicate_label,
+                relation_type="predicate_relation",
+                sentence=sentence,
+                chunk_ids=chunk_id,
+                weight=1,
             )
 
-    # 디버그: 엣지 속성 검사
-    print("=== Edge Attributes Check ===")
-    for u, v, d in G.edges(data=True):
-        for key, value in d.items():
-            if isinstance(value, tuple):
-                print(f"[TUPLE] Edge {u} - {v} has tuple in '{key}': {value}")
-            elif not isinstance(value, (str, int, float)):
-                print(f"[WARN] Edge {u} - {v} has non-serializable '{key}': {value} ({type(value)})")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    nx.write_gexf(graph, output_path)
+    print(f"Wrote GEXF graph to {output_path}")
+    return str(output_path)
 
-    # 저장
-    output_file = output_file or input_file.replace('.json', '.gexf')
-    nx.write_gexf(G, output_file)
-    print("📁 File saved:", output_file)
-
-
-# ─────────────────────────────────────────────────────────────────────
-# ✅ CLI에서 직접 실행할 경우만 작동
-# ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    convert_json_to_gexf("UltraDomain/Mix/graph_v1.json")
+    parser = argparse.ArgumentParser(description="Convert graph JSON blocks into a GEXF graph.")
+    parser.add_argument("input_file", help="Path to the extracted graph JSON file")
+    parser.add_argument("output_file", nargs="?", help="Optional output GEXF path")
+    args = parser.parse_args()
+    convert_json_to_gexf(args.input_file, args.output_file)
+

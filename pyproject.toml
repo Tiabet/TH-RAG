@@ -1,0 +1,30 @@
+[project]
+name = "th-rag"
+version = "0.1.0"
+description = "Reference implementation for TH-RAG: Topic-Based Hierarchical Knowledge Graphs for Robust Multi-hop Reasoning in Graph-based RAG Systems"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+  "faiss-cpu>=1.10.0",
+  "matplotlib>=3.9.2",
+  "networkx>=3.4.2",
+  "numpy>=1.26.4",
+  "openai>=1.68.2",
+  "python-dotenv>=1.1.0",
+  "tiktoken>=0.9.0",
+  "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

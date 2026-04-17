@@ -1,151 +1,93 @@
-#!/usr/bin/env python3
-"""
-KGRAG configuration test script
-Verify that .env file settings are loaded correctly.
-"""
+"""Utility script for validating TH-RAG configuration."""
 
+from __future__ import annotations
+
+import argparse
 import os
 from pathlib import Path
 
-def test_config():
-    """Configuration test"""
-    print("🔧 KGRAG Configuration Test")
-    print("=" * 50)
-    
-    # Check .env file
-    env_file = Path(".env")
-    env_example = Path(".env.example")
-    
-    if not env_file.exists():
-        if env_example.exists():
-            print("⚠️  .env file does not exist. Please copy .env.example and configure:")
-            print(f"   cp {env_example} {env_file}")
+
+def test_config() -> None:
+    print("TH-RAG configuration check")
+    print("=" * 60)
+
+    env_path = Path(".env")
+    env_example_path = Path(".env.example")
+
+    if not env_path.exists():
+        if env_example_path.exists():
+            print("Missing .env file. Copy .env.example and fill in your API key.")
+            print(f"Example: copy {env_example_path} {env_path}")
         else:
-            print("❌ .env.example file is also missing!")
+            print("Missing both .env and .env.example.")
         return
-    
-    # Test config loading
+
     try:
         from config import get_config
+
         config = get_config()
-        print("✅ Config loaded successfully!")
-        
-        # Check API key
-        print(f"\n📍 API Configuration:")
-        if config.openai_api_key:
-            print(f"   OpenAI API Key: {'*' * 10}{config.openai_api_key[-4:] if len(config.openai_api_key) > 4 else '****'}")
-        else:
-            print("   ⚠️  OpenAI API Key is not configured!")
-            
-        # Model configuration
-        print(f"\n🤖 Model Configuration:")
-        print(f"   Default model: {config.default_model}")
-        print(f"   Embedding model: {config.embed_model}")
-        print(f"   Chat model: {config.chat_model}")
-        print(f"   Evaluation model: {config.eval_model}")
-        
-        # Hyperparameters
-        print(f"\n⚙️  Hyperparameters:")
-        print(f"   Temperature: {config.temperature}")
-        print(f"   Max Tokens: {config.max_tokens}")
-        print(f"   Overlap: {config.overlap}")
-        print(f"   Top-K1: {config.top_k1}")
-        print(f"   Top-K2: {config.top_k2}")
-        
-        # Topic/Subtopic configuration
-        print(f"\n📋 Topic Configuration:")
-        print(f"   Topic selection range: {config.topic_choice_min}-{config.topic_choice_max}")
-        print(f"   Subtopic selection range: {config.subtopic_choice_min}-{config.subtopic_choice_max}")
-        
-        # System configuration
-        print(f"\n🔧 System Configuration:")
-        print(f"   Max Workers: {config.max_workers}")
-        print(f"   Log Level: {config.log_level}")
-        print(f"   Batch Size: {config.batch_size}")
-        
-        print(f"\n✅ All configurations loaded successfully!")
-        
-    except Exception as e:
-        print(f"❌ Config loading failed: {e}")
+    except Exception as exc:
+        print(f"Failed to load configuration: {exc}")
         return
-    
-    # Direct environment variable check
-    print(f"\n🌍 Environment Variable Check:")
-    env_vars = [
-        "OPENAI_API_KEY", "DEFAULT_MODEL", "EMBED_MODEL", "CHAT_MODEL",
-        "TEMPERATURE", "MAX_TOKENS", "TOP_K1", "TOP_K2",
-        "TOPIC_CHOICE_MIN", "TOPIC_CHOICE_MAX"
-    ]
-    
-    for var in env_vars:
-        value = os.getenv(var)
-        if value:
-            if "API_KEY" in var:
-                display_value = f"{'*' * 10}{value[-4:] if len(value) > 4 else '****'}"
-            else:
-                display_value = value
-            print(f"   {var}: {display_value}")
+
+    print("API settings")
+    print("-" * 60)
+    if config.openai_api_key:
+        masked_key = f"{'*' * 8}{config.openai_api_key[-4:]}" if len(config.openai_api_key) >= 4 else "configured"
+        print(f"OPENAI_API_KEY: {masked_key}")
+    else:
+        print("OPENAI_API_KEY: missing")
+
+    print("\nModel settings")
+    print("-" * 60)
+    print(f"DEFAULT_MODEL: {config.default_model}")
+    print(f"EMBED_MODEL: {config.embed_model}")
+    print(f"CHAT_MODEL: {config.chat_model}")
+    print(f"EVAL_MODEL: {config.eval_model}")
+
+    print("\nRetrieval and generation settings")
+    print("-" * 60)
+    print(f"TOP_K1 / TOP_K2: {config.top_k1} / {config.top_k2}")
+    print(f"TOP_K1_LONG / TOP_K2_LONG: {config.top_k1_long} / {config.top_k2_long}")
+    print(f"MAX_TOKENS / OVERLAP: {config.max_tokens} / {config.overlap}")
+    print(f"MAX_WORKERS: {config.max_workers}")
+
+    print("\nEnvironment variables")
+    print("-" * 60)
+    for name in [
+        "OPENAI_API_KEY",
+        "DEFAULT_MODEL",
+        "EMBED_MODEL",
+        "CHAT_MODEL",
+        "EVAL_MODEL",
+        "TOP_K1",
+        "TOP_K2",
+        "MAX_TOKENS",
+        "OVERLAP",
+    ]:
+        value = os.getenv(name)
+        if not value:
+            print(f"{name}: missing")
+        elif "API_KEY" in name:
+            print(f"{name}: {'*' * 8}{value[-4:]}")
         else:
-            print(f"   {var}: ❌ Not configured")
+            print(f"{name}: {value}")
 
-def create_sample_env():
-    """Create sample .env file"""
-    print("\n📝 Creating sample .env file...")
-    
-    env_content = """# KGRAG Configuration
-# OpenAI API Key (required)
-OPENAI_API_KEY=your_openai_api_key_here
 
-# Model Settings
-DEFAULT_MODEL=gpt-4o-mini
-EMBED_MODEL=text-embedding-3-small
-CHAT_MODEL=gpt-4o-mini
-EVAL_MODEL=gpt-4o-mini
 
-# Generation Parameters
-TEMPERATURE=0.5
-MAX_TOKENS_RESPONSE=2000
-ANSWER_TEMPERATURE=0.3
-ANSWER_MAX_TOKENS=1000
-EVAL_TEMPERATURE=0.1
+def create_sample_env() -> None:
+    template = Path(".env.example")
+    if not template.exists():
+        raise FileNotFoundError(".env.example is missing.")
+    Path(".env").write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
+    print("Created .env from .env.example. Update OPENAI_API_KEY before running the pipeline.")
 
-# Text Processing
-MAX_TOKENS=3000
-OVERLAP=300
-MAX_WORKERS=10
-
-# Topic Selection
-TOPIC_CHOICE_MIN=5
-TOPIC_CHOICE_MAX=10
-SUBTOPIC_CHOICE_MIN=10
-SUBTOPIC_CHOICE_MAX=25
-
-# RAG Parameters
-TOP_K1=50
-TOP_K2=10
-EMBEDDING_TOP_K=5
-OVERRETRIEVE_FACTOR=5
-
-# System Settings
-LOG_LEVEL=INFO
-BATCH_SIZE=32
-TIMEOUT_SECONDS=30
-"""
-    
-    with open(".env", "w", encoding="utf-8") as f:
-        f.write(env_content)
-    
-    print("✅ .env file has been created!")
-    print("⚠️ Please replace OPENAI_API_KEY with your actual API key!")
 
 if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="KGRAG configuration test")
-    parser.add_argument("--create-env", action="store_true", help="Create sample .env file")
-    
+    parser = argparse.ArgumentParser(description="Inspect TH-RAG configuration values.")
+    parser.add_argument("--create-env", action="store_true", help="Create .env from .env.example")
     args = parser.parse_args()
-    
+
     if args.create_env:
         create_sample_env()
     else:

@@ -1,104 +1,138 @@
-import json, sys, os
+"""Batch long-answer generation for TH-RAG."""
+
+from __future__ import annotations
+
 from pathlib import Path
-from graph_based_rag_long import GraphRAG
-from tqdm import tqdm
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
+import argparse
+import json
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import tiktoken
+from pathlib import Path
+from typing import Any
 
-# Change working directory to project root
-PROJECT_ROOT = Path(__file__).parent.parent
-os.chdir(PROJECT_ROOT)
+from tqdm import tqdm
 
-# Initialize encoder
-enc = tiktoken.encoding_for_model("gpt-4o")
+from config import get_config
+from generate.graph_based_rag_long import GraphRAG
 
-# Configuration
-input_path       = "UltraDomain/Mix/qa.json"
-output_path      = "Result/Ours/mix_result.json"
-chunk_log_path   = "Result/Ours/Chunks/used_chunks_mix.jsonl"
-temp_output_path = output_path.replace(".json", "_temp.json")
+_THREAD_STATE = threading.local()
 
-MAX_WORKERS = 30
-TOP_K1 = 50
-TOP_K2 = 5
 
-# Create result directories
-os.makedirs(os.path.dirname(output_path), exist_ok=True)
-os.makedirs(os.path.dirname(chunk_log_path), exist_ok=True)
 
-# Create GraphRAG instance
-rag = GraphRAG()
-chunk_log_file = open(chunk_log_path, "w", encoding="utf-8")
+def get_rag(dataset_name: str) -> GraphRAG:
+    rag = getattr(_THREAD_STATE, "rag", None)
+    if rag is None or getattr(rag, "dataset_name", None) != dataset_name:
+        rag = GraphRAG(dataset_name=dataset_name)
+        _THREAD_STATE.rag = rag
+    return rag
 
-# Load questions
-with open(input_path, 'r', encoding='utf-8') as f:
-    questions = json.load(f)
 
-# Initialize result list
-output_data = [None] * len(questions)
 
-# Processing function
-def process(index_query):
-    idx, item = index_query
-    query = item.get("query", "")
-    try:
-        answer, spent, context = rag.answer(query=query, top_k1=TOP_K1, top_k2=TOP_K2)
-        chunk_ids = getattr(rag, "last_chunk_ids", [])
-    except Exception as e:
-        answer = f"[Error] {e}"
-        spent = 0.0
-        context = ""
-        chunk_ids = []
+def load_questions(input_path: Path) -> list[dict[str, Any]]:
+    with input_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, list):
+        raise ValueError(f"Question file must contain a JSON list: {input_path}")
+    return payload
 
-    # chunk-id log
-    for cid in chunk_ids:
-        chunk_log_file.write(json.dumps({"query": query, "chunk_id": cid}, ensure_ascii=False) + "\n")
 
-    # Sentence-based chunk-id log
-    sentence_chunk_ids = set(getattr(rag, "all_sentence_chunk_ids", []))
-    for cid in sentence_chunk_ids:
-        chunk_log_file.write(json.dumps({"query": query, "sentence_chunk_id": cid}, ensure_ascii=False) + "\n")
 
-    # 결과 저장
-    result = {
-        "query": query,
-        "result": answer,
-        "time": spent,
-        "context_token": context,
-    }
-    return idx, result
+def main(dataset_name: str, force_rebuild: bool = False) -> str:
+    config = get_config(dataset_name)
+    input_path = config.get_questions_file()
+    output_path = config.get_answer_file(answer_type="long")
+    chunk_log_path = config.get_chunk_log_file(answer_type="long")
+    temp_output_path = output_path.with_name(output_path.stem + "_temp.json")
 
-# 병렬 실행
-completed = 0
-save_every = 10
+    questions = load_questions(input_path)
+    results: list[dict[str, Any] | None] = [None] * len(questions)
 
-with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-    futures = [executor.submit(process, (i, item)) for i, item in enumerate(questions)]
-    for future in tqdm(as_completed(futures), total=len(futures), desc="Generating answers"):
-        idx, result = future.result()
-        output_data[idx] = result
-        completed += 1
+    def process(index: int, item: dict[str, Any]) -> tuple[int, dict[str, Any], list[dict[str, str]]]:
+        query = str(item.get("query", "")).strip()
+        rag = get_rag(dataset_name)
+        try:
+            answer_text, elapsed, context_tokens = rag.answer(query=query)
+            chunk_log_entries = [
+                {"query": query, "chunk_id": chunk_id}
+                for chunk_id in rag.last_chunk_ids
+            ]
+            chunk_log_entries.extend(
+                {"query": query, "sentence_chunk_id": chunk_id}
+                for chunk_id in rag.all_sentence_chunk_ids
+            )
+            result = {
+                "query": query,
+                "result": answer_text,
+                "meta": {
+                    "total_spent": elapsed,
+                    "context_tokens": context_tokens,
+                },
+            }
+        except Exception as exc:
+            result = {
+                "query": query,
+                "result": f"[Error] {exc}",
+                "meta": {
+                    "total_spent": 0.0,
+                    "context_tokens": 0,
+                },
+            }
+            chunk_log_entries = []
+        return index, result, chunk_log_entries
 
-        if completed % save_every == 0:
-            with open(temp_output_path, 'w', encoding='utf-8') as f:
-                json.dump(output_data, f, indent=2, ensure_ascii=False)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    chunk_log_path.parent.mkdir(parents=True, exist_ok=True)
 
-chunk_log_file.close()
+    log_lines: list[str] = []
+    with ThreadPoolExecutor(max_workers=config.max_workers) as executor:
+        futures = [executor.submit(process, index, item) for index, item in enumerate(questions)]
+        for completed_count, future in enumerate(
+            tqdm(as_completed(futures), total=len(futures), desc="Generating long answers"),
+            start=1,
+        ):
+            index, result, chunk_log_entries = future.result()
+            results[index] = result
+            log_lines.extend(json.dumps(entry, ensure_ascii=False) for entry in chunk_log_entries)
 
-# 최종 결과 저장
-with open(output_path, 'w', encoding='utf-8') as f:
-    json.dump(output_data, f, indent=2, ensure_ascii=False)
+            if completed_count % 10 == 0 or completed_count == len(futures):
+                with temp_output_path.open("w", encoding="utf-8") as handle:
+                    json.dump(results, handle, indent=2, ensure_ascii=False)
 
-print(f"✅ 최종 결과 저장 완료 → {output_path}")
+    finalized_results = [item for item in results if item is not None]
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(finalized_results, handle, indent=2, ensure_ascii=False)
 
-# # 평균 시간 및 토큰 수 계산
-# valid_items = [it for it in output_data if it and not it["result"].startswith("[Error]")]
+    with chunk_log_path.open("w", encoding="utf-8") as handle:
+        if log_lines:
+            handle.write("\n".join(log_lines) + "\n")
 
-# if valid_items:
-#     avg_time = sum(it["time"] for it in valid_items) / len(valid_items)
-#     avg_tokens = sum(len(enc.encode(it["context_token"])) for it in valid_items) / len(valid_items)
+    valid_answers = sum(
+        1 for item in finalized_results if isinstance(item, dict) and not str(item.get("result", "")).startswith("[Error]")
+    )
+    config.mark_step_completed(
+        "answer_generation_long",
+        input_file=str(input_path),
+        output_file=str(output_path),
+        chunk_log_file=str(chunk_log_path),
+        total_questions=len(finalized_results),
+        valid_answers=valid_answers,
+        force_rebuild=force_rebuild,
+    )
+    print(f"Long-answer results written to {output_path}")
+    return str(output_path)
 
-#     print(f"\n📊 평균 소요 시간: {avg_time:.2f}초")
-#     print(f"📊 평균 컨텍스트 토큰 수: {avg_tokens:.1f}개")
-# else:
-#     print("⚠️ 유효한 결과가 없어 평균을 계산할 수 없습니다.")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate long answers for a TH-RAG dataset.")
+    parser.add_argument("--dataset", required=True, help="Dataset name under data/<dataset>/")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing output files.")
+    args = parser.parse_args()
+    main(dataset_name=args.dataset, force_rebuild=args.force)
+

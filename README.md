@@ -1,250 +1,189 @@
-# KGRAG - Knowledge Graph-based Retrieval Augmented Generation
+# TH-RAG
 
-A knowledge graph–based RAG (Retrieval-Augmented Generation) system.
+Reference implementation for the ACL 2026 paper **TH-RAG: Topic-Based Hierarchical Knowledge Graphs for Robust Multi-hop Reasoning in Graph-based RAG Systems**.
 
-## 🚀 Quick Start
+This repository contains the end-to-end research pipeline used to:
 
-### 1. Installation & Setup
+1. build hierarchical knowledge-graph artifacts from raw contexts,
+2. index graph evidence with FAISS,
+3. generate short-form and long-form answers, and
+4. evaluate model outputs.
+
+## Repository Status
+
+The codebase has been cleaned for public release with these constraints:
+
+- English-only comments, documentation, and user-facing messages
+- no decorative emoji or informal console output
+- removal of empty placeholder files and unrelated cleanup scripts
+- unified configuration and path handling across graph construction, retrieval, generation, and evaluation
+
+## Requirements
+
+- Python 3.10+
+- An OpenAI API key exposed through `OPENAI_API_KEY`
+- Platform support: Windows, Linux, and macOS through the Python CLI
+
+Install dependencies:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Tiabet/KGRAG.git
-cd KGRAG
-
-# Create a virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or
-venv\Scripts\activate.bat  # Windows
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Set your OpenAI API key
-export OPENAI_API_KEY="your-api-key-here"  # Linux/Mac
-# or
-set OPENAI_API_KEY=your-api-key-here  # Windows
 ```
 
-### 2. Unified Run Interface
-
-**Windows:**
-```cmd
-run_all.bat
-```
-
-**Linux/Mac:**
-```bash
-chmod +x run_all.sh
-./run_all.sh
-```
-
-## 📁 Project Structure
-
-```
-KGRAG/
-├── 📁 index/              # Graph construction
-│   ├── build_graph.py
-│   ├── graph_construction.py
-│   ├── json_to_gexf.py
-│   ├── edge_embedding.py
-│   ├── build_index.sh     # For Linux/Mac
-│   └── build_index.bat    # For Windows
-│
-├── 📁 generate/           # Answer generation
-│   ├── graph_based_rag_short.py
-│   ├── graph_based_rag_long.py
-│   ├── answer_generation_short.py
-│   ├── answer_generation_long.py
-│   ├── generate_answers.sh   # For Linux/Mac
-│   └── generate_answers.bat  # For Windows
-│
-├── 📁 evaluate/           # Answer evaluation
-│   ├── judge_F1.py
-│   ├── judge_Ultradomain.py
-│   ├── evaluate_answers.sh   # For Linux/Mac
-│   └── evaluate_answers.bat  # For Windows
-│
-├── 📁 prompt/             # Prompt templates
-├── 📁 hotpotQA/           # Example dataset
-├── 📁 UltraDomain/        # Example dataset
-├── 📁 MultihopRAG/        # Example dataset
-│
-├── Retriever.py           # Common retriever
-├── subtopic_choice.py     # Subtopic selection
-├── topic_choice.py        # Topic selection
-├── requirements.txt       # Dependencies
-├── SETUP_GUIDE.md         # Detailed guide
-├── run_all.sh             # Unified runner (Linux/Mac)
-└── run_all.bat            # Unified runner (Windows)
-```
-
-## 🔧 Usage
-
-### 1. Configuration ⚙️
+Optionally, install the project metadata and test dependencies:
 
 ```bash
-# Create a .env file (copy from template)
+pip install -e .[dev]
+```
+
+## Dataset Format
+
+Each dataset lives under `data/<dataset_name>/`.
+
+Required files:
+
+- `contexts.txt`: source passages used to build the hierarchical graph
+- `qa.json`: evaluation questions and gold answers
+
+Expected `qa.json` format:
+
+```json
+[
+  {
+    "query": "What does TH-RAG use to index graph evidence?",
+    "answer": "FAISS"
+  }
+]
+```
+
+An example dataset is included at `data/test_dataset/`.
+
+## Quick Start
+
+1. Copy the environment template.
+
+```bash
 cp .env.example .env
-
-# Or generate a sample via the test script
-python test_config.py --create-env
-
-# Set your API key in .env
-# OPENAI_API_KEY=your_actual_api_key_here
 ```
 
-**Key settings:**
-- `OPENAI_API_KEY`: OpenAI API key (required)
-- `DEFAULT_MODEL`: default model (default: gpt-4o-mini)
-- `TOP_K1`, `TOP_K2`: RAG retrieval parameters (default: 50, 10)
-- `TOPIC_CHOICE_MIN/MAX`: number of topics to select (default: 5–10)
-- `SUBTOPIC_CHOICE_MIN/MAX`: number of subtopics to select (default: 10–25)
-- `MAX_TOKENS`, `OVERLAP`: text chunking (default: 3000, 300)
-- `TEMPERATURE`: generation temperature (default: 0.5)
+2. Add your OpenAI API key to `.env`.
+
+3. Validate the configuration.
 
 ```bash
-# Validate configuration
 python test_config.py
 ```
 
-### 2. Build the Graph Index 🏗️
+4. List available datasets.
 
-First build a knowledge graph from text data and create a FAISS index.
-
-**Required input:** `[dataset]/contexts.txt`
-
-**Artifacts produced:**
-- `graph_v1.json` — extracted triples
-- `graph_v1.gexf` — graph file
-- `edge_index_v1.faiss` — FAISS vector index
-- `edge_payloads_v1.npy` — metadata
-
-### 3. Generate Answers 🤖
-
-Use the constructed graph to generate answers to questions.
-
-**Required input:**
-- Indexed dataset
-- `[dataset]/qa.json` — question file
-
-**Output:** results saved under `Result/Generated/`
-
-**Modes:**
-- Short answers (faster)
-- Long answers (more detailed)
-- Interactive mode (real-time Q&A)
-
-### 3. Evaluate Answers 📊
-
-Compare generated answers against the gold standard to measure performance.
-
-**Metrics:**
-- **F1 Score** — precision, recall, F1
-- **UltraDomain evaluation** — LLM-based quality assessment
-
-**Output:** results saved under `Result/Evaluation/`
-
-## 💡 Highlights
-
-- **Modular design:** clear separation by functionality
-- **Cross-platform:** Windows, Linux, and Mac supported
-- **Interactive interface:** easy-to-use menu system
-- **Parallel processing:** multithreading for speed
-- **Flexible configuration:** rich options and skip controls
-- **Detailed logging:** progress and error tracking
-
-## 📊 Performance
-
-- **Speed:** fast graph construction with multithreading
-- **Scalability:** supports large datasets
-- **Accuracy:** high-quality triple extraction and retrieval
-
-## 🛠️ Developer Guide
-
-### How to Use
-
-**1. GUI Tool (Windows)**
 ```bash
-# Run the GUI tool on Windows
+python pipeline.py --list-datasets
+```
+
+5. Run the full pipeline.
+
+```bash
+python pipeline.py --dataset test_dataset
+```
+
+## Pipeline Stages
+
+The unified pipeline exposes the following canonical steps:
+
+- `graph_construction`: chunk `contexts.txt`, extract triples, and create the chunk KV store
+- `json_to_gexf`: convert extracted triples into a hierarchical GEXF graph
+- `edge_embedding`: embed predicate-edge evidence and build the FAISS index
+- `answer_generation_short`: produce concise answers
+- `answer_generation_long`: produce detailed answers
+- `evaluation_f1`: score the short-answer output against the gold answers in `qa.json`
+
+You can also use step aliases:
+
+- `graph_build` -> `graph_construction json_to_gexf edge_embedding`
+- `answer_generation` -> `answer_generation_short answer_generation_long`
+- `evaluation` -> `evaluation_f1`
+
+Examples:
+
+```bash
+python pipeline.py --dataset test_dataset --steps graph_build
+python pipeline.py --dataset test_dataset --steps answer_generation_short
+python pipeline.py --dataset test_dataset --steps evaluation
+python pipeline.py --dataset test_dataset --steps graph_build answer_generation_short --force
+```
+
+## Output Layout
+
+Generated artifacts are written under `results/`.
+
+- `results/index/`: extracted graph JSON, KV store, GEXF graph, FAISS index, and payloads
+- `results/generated/`: model answers
+- `results/chunks/`: chunk usage logs for answer generation
+- `results/evaluated/`: evaluation summaries
+- `temp/`: pipeline state bookkeeping
+
+## Pairwise Evaluation
+
+For pairwise LLM-based comparison between two answer files, use the UltraDomain-style evaluator:
+
+```bash
+python evaluate/judge_Ultradomain.py \
+  --answer-a results/generated/test_dataset_answers_long.json \
+  --answer-b other_system_answers.json \
+  --output results/evaluated/test_dataset_pairwise.json \
+  --label-a TH-RAG \
+  --label-b Baseline \
+  --plot results/evaluated/test_dataset_pairwise.png
+```
+
+## Windows Helper
+
+A menu-driven Windows launcher is available:
+
+```cmd
 run_pipeline.bat
 ```
 
-**2. Command-Line Interface**
-```bash
-# Run the entire pipeline
-python pipeline.py --dataset your_dataset
+## Repository Structure
 
-# Run specific steps only
-python pipeline.py --dataset your_dataset --steps graph_construction,edge_embedding
-
-# List available datasets
-python pipeline.py --list-datasets
-
-# Force re-run (overwrite existing results)
-python pipeline.py --dataset your_dataset --force
+```text
+THRAG/
+|-- config.py
+|-- pipeline.py
+|-- test_config.py
+|-- README.md
+|-- SETUP_GUIDE.md
+|-- requirements.txt
+|-- pyproject.toml
+|-- run_pipeline.bat
+|-- data/
+|-- index/
+|   |-- build_graph.py
+|   |-- graph_construction.py
+|   |-- json_to_gexf.py
+|   |-- edge_embedding.py
+|   |-- topic_choice.py
+|   |-- subtopic_choice.py
+|-- generate/
+|   |-- Retriever.py
+|   |-- graph_rag.py
+|   |-- graph_based_rag_short.py
+|   |-- graph_based_rag_long.py
+|   |-- answer_generation_short.py
+|   |-- answer_generation_long.py
+|-- evaluate/
+|   |-- judge_F1.py
+|   |-- judge_Ultradomain.py
+|-- prompt/
+|-- tests/
 ```
 
-**3. Individual Modules (for debugging)**
-```bash
-# Graph construction
-python index/graph_construction.py your_dataset
+## Notes
 
-# Answer generation
-python generate/answer_generation_short.py your_dataset
+- The pipeline expects `qa.json` to contain gold answers if you want to run `evaluation_f1`.
+- `answer_generation_short` is the output consumed by the F1 evaluator by default.
+- Public-release cleanup removed unfinished wrappers and utility files that were not part of the research pipeline.
 
-# Evaluation
-python evaluate/judge_F1.py your_dataset
-```
-
-### Adding a New Dataset
-
-1. Create `data/[dataset_name]/`
-2. Save text data to `data/[dataset_name]/contexts.txt`
-3. (Optional) Save a question list to `data/[dataset_name]/questions.txt`
-4. Run the pipeline
-
-### Tuning Configuration
-
-Adjust hyperparameters in `.env`:
-```env
-# RAG retrieval performance
-TOP_K1=100         # Retrieve more edges (default: 50)
-TOP_K2=20          # Select more chunks (default: 10)
-
-# Topic selection ranges
-TOPIC_CHOICE_MAX=15      # More diverse topics (default: 10)
-SUBTOPIC_CHOICE_MAX=30   # More diverse subtopics (default: 25)
-
-# Model parameters
-TEMPERATURE=0.3          # More conservative answers (default: 0.5)
-MAX_TOKENS=5000          # Longer context (default: 3000)
-```
-
-## 📁 Project Layout
-
-```
-KGRAG/
-├── 📄 pipeline.py          # Unified pipeline runner
-├── 📄 config.py            # Configuration management
-├── 📄 test_config.py       # Configuration test tool
-├── 🖥️ run_pipeline.bat     # Windows GUI tool
-├── 📁 index/               # Graph construction modules
-├── 📁 generate/            # Answer generation modules
-├── 📁 evaluate/            # Evaluation modules
-├── 📁 prompt/              # Prompt templates
-├── 📁 data/                # Datasets
-└── 📁 results/             # Execution outputs
-```
-
-## 📝 License
+## License
 
 Apache License 2.0
-
-## 🤝 Contributing
-
-Bug reports, feature requests, and pull requests are welcome!
-
----
-
-For more details, see [SETUP_GUIDE.md](SETUP_GUIDE.md).

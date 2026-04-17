@@ -1,53 +1,46 @@
-"""
-Utility helpers for picking relevant topic labels from a knowledge‑graph topic list
-using the LLM prompt template defined in ``prompt/topic_choice.py``.
-"""
+"""Topic selection helpers for TH-RAG."""
 
 from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 
 import json
 from typing import List
 
 import networkx as nx
 from openai import OpenAI
-import sys
-from pathlib import Path
 
-# Add project root to path
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
-# Local prompt template
+from config import get_config
 from prompt.topic_choice import TOPIC_CHOICE_PROMPT
 
-from dotenv import load_dotenv
-
-load_dotenv()
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-from config import get_config
 config = get_config()
 
 DEFAULT_MODEL = config.default_model
 TOPIC_CHOICE_MIN = config.topic_choice_min
 TOPIC_CHOICE_MAX = config.topic_choice_max
 MAX_RETRIES = config.max_retries
-# ---------------------------------------------------------------------------
-# Core helpers
-# ---------------------------------------------------------------------------
+
 
 def extract_graph_topic_labels(graph: nx.Graph) -> List[str]:
-    """Return **unique** topic labels from the graph, preserving insertion order."""
-    labels_seen = set()
-    labels = []
-    for _nid, data in graph.nodes(data=True):
-        if data.get("type") == "topic":
-            lbl = data.get("label", "")
-            if lbl and lbl not in labels_seen:
-                labels.append(lbl)
-                labels_seen.add(lbl)
+    """Return unique topic labels in graph iteration order."""
+
+    seen: set[str] = set()
+    labels: list[str] = []
+    for _node_id, data in graph.nodes(data=True):
+        if data.get("type") != "topic":
+            continue
+        label = str(data.get("label", "")).strip()
+        if label and label not in seen:
+            labels.append(label)
+            seen.add(label)
     return labels
+
 
 def choose_topics_from_graph(
     question: str,
@@ -58,87 +51,55 @@ def choose_topics_from_graph(
     min_topics: int = TOPIC_CHOICE_MIN,
     max_retries: int = MAX_RETRIES,
 ) -> List[str]:
-    """Ask the LLM to pick up to *max_topics* relevant topics from *graph*.
-
-    If the LLM response is invalid, it will retry up to `max_retries` times
-    by re-asking the same prompt.
-
-    Returns
-    -------
-    List[str]
-        List of chosen topic *labels* exactly as they appear in the graph label list.
-
-    Raises
-    ------
-    ValueError
-        If no valid result is obtained after max_retries.
-    """
+    """Ask the LLM to select relevant topic labels from the graph."""
 
     topic_labels = extract_graph_topic_labels(graph)
     if not topic_labels:
-        raise ValueError("Graph contains no topic nodes (type='topic').")
+        raise ValueError("The graph does not contain any topic nodes.")
 
-    prompt_str = (
+    min_topics = max(1, min(min_topics, len(topic_labels)))
+    max_topics = max(min_topics, min(max_topics, len(topic_labels)))
+
+    prompt = (
         TOPIC_CHOICE_PROMPT
         .replace("{{TOPIC_LIST}}", json.dumps(topic_labels, ensure_ascii=False))
         .replace("{{question}}", question)
-        .replace("{max_topics}", str(max_topics))
-        .replace("{min_topics}", str(TOPIC_CHOICE_MIN))
         .replace("{min_topics}", str(min_topics))
+        .replace("{max_topics}", str(max_topics))
     )
-    # print(prompt_str)
 
+    last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt_str},
+                {"role": "system", "content": "You select relevant topic labels from a fixed list."},
+                {"role": "user", "content": prompt},
             ],
             response_format={"type": "json_object"},
             temperature=config.answer_temperature,
         )
-
-        content = response.choices[0].message.content
-        # print(content)
+        content = response.choices[0].message.content or "{}"
 
         try:
-            data = json.loads(content)
-            chosen = data.get("topics")
+            payload = json.loads(content)
+            chosen = payload.get("topics")
+            if not isinstance(chosen, list):
+                raise ValueError("The model response did not contain a list under 'topics'.")
 
-            if not isinstance(chosen, list) or not (1 <= len(chosen) <= max_topics):
-                raise ValueError("Invalid topic list format or length.")
+            deduplicated = [label for label in topic_labels if label in set(chosen)]
+            if not deduplicated:
+                raise ValueError("The model did not return any valid topic labels.")
 
-            invalid = [t for t in chosen if t not in topic_labels]
-            if invalid:
-                raise ValueError("Returned topics not in topic list.")
+            return deduplicated[:max_topics]
+        except Exception as exc:
+            last_error = exc
+            print(f"Topic selection attempt {attempt} failed: {exc}")
 
-            ordered = [lbl for lbl in topic_labels if lbl in chosen]
-            return ordered
+    fallback = topic_labels[:max_topics]
+    if fallback:
+        print("Topic selection fell back to the first available graph topics.")
+        return fallback
 
-        except Exception as e:
-            print(f"[Attempt {attempt}] Failed to parse or validate response: {e}")
-            if attempt == max_retries:
-                raise ValueError("Failed to get valid topic list after multiple attempts.")
+    raise ValueError("Topic selection failed and no fallback topics were available.") from last_error
 
-    raise RuntimeError("Unreachable fallback")  # Just in case
-
-# ---------------------------------------------------------------------------
-# Example standalone usage (for local testing)
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    import os
-    import networkx as nx
-
-    # Example: load graph and run a single query
-    GEXF_PATH = 'MultihopRAG/graph_v1.gexf'
-    if not os.path.exists(GEXF_PATH):
-        raise SystemExit("Set GEXF_PATH environment variable or place graph.gexf in cwd.")
-
-    G = nx.read_gexf(GEXF_PATH)
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-    # question = "Which documentary was filmed first, Almost Sunrise or Hail! Hail! Rock 'n' Roll?"
-    question = "Which is larger, Hunchun or Shijiazhuang?"
-    print("Chosen topics:")
-    print(choose_topics_from_graph(question, G, client))

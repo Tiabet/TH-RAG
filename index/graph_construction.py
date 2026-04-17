@@ -1,183 +1,237 @@
-import json
-import os
-import sys
+"""Graph construction for TH-RAG.
+
+This step chunks a dataset's contexts.txt file, stores the chunk text in a KV store,
+and extracts topic-aware triples for each chunk with an OpenAI model.
+"""
+
+from __future__ import annotations
+
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
-import openai
-import tiktoken
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
 import argparse
+import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import Any
 
-# Set project root
-PROJECT_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "prompt"))
+import tiktoken
+from openai import OpenAI
+from tqdm import tqdm
 
-# Import configuration and prompts
-from config import get_config
-from prompt.topic_choice import get_topic_choice_prompt
+from config import THRAGConfig, get_config
+from prompt.extract_graph import EXTRACTION_PROMPT
 
-# ==== Configuration ====
-# Load configuration from environment variables
-from config import get_config
-config = get_config()
 
-OPENAI_API_KEY = config.openai_api_key
-MODEL_NAME = config.default_model
-MAX_TOKENS = config.max_tokens
-OVERLAP = config.overlap
-MAX_WORKERS = config.max_workers
+def chunk_text(text: str, max_tokens: int, overlap: int, model_name: str) -> list[str]:
+    """Split text into overlapping token windows."""
 
-# ==== Functions ====
-def chunk_text(text, max_tokens, overlap, model_name):
-    """
-    텍스트를 지정된 토큰 수에 맞게 청크로 나눕니다.
-    """
     encoding = tiktoken.encoding_for_model(model_name)
     tokens = encoding.encode(text)
-    
-    chunks = []
+
+    chunks: list[str] = []
     start = 0
-    
     while start < len(tokens):
         end = min(start + max_tokens, len(tokens))
-        chunk_tokens = tokens[start:end]
-        chunk_text = encoding.decode(chunk_tokens)
-        chunks.append(chunk_text)
-        
+        chunks.append(encoding.decode(tokens[start:end]))
         if end >= len(tokens):
             break
-            
-        start = end - overlap
-    
+        start = max(0, end - overlap)
+
     return chunks
 
-def call_model(client, model_name, chunk, index):
-    """
-    OpenAI API를 호출하여 주어진 청크에 대한 QA를 생성합니다.
-    """
-    try:
-        prompt = get_topic_choice_prompt()
-        
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": chunk}
-            ],
-            temperature=config.temperature,
-            max_tokens=config.max_tokens_response
-        )
-        data = json.loads(response.choices[0].message.content.strip())
-        if isinstance(data, list):
-            for item in data:
-                item["chunk_id"] = index
-        elif isinstance(data, dict):
-            data["chunk_id"] = index
-        return data
-    except Exception as e:
-        return {"error": str(e), "chunk_index": index}
 
-# ==== Main Function ====
-def main(dataset_name: str = None, input_path_param: str = None, output_path_param: str = None):
-    """
-    Main function to run graph construction.
-    
-    Args:
-        dataset_name: 데이터셋 이름
-        input_path_param: 입력 파일 경로 (선택사항)
-        output_path_param: 출력 파일 경로 (선택사항)
-    """
-    # Check API key when actually running
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY environment variable is required")
-    
-    # 설정 객체 생성
-    if not dataset_name:
-        raise ValueError("Dataset name is required")
-    
-    config = get_config(dataset_name)
-    
-    # 경로 설정
-    current_input_path = input_path_param if input_path_param else str(config.get_input_file())
-    current_output_path = output_path_param if output_path_param else str(config.get_qa_file())
-    
-    print(f"📂 Processing dataset: {dataset_name}")
-    print(f"📂 Input: {current_input_path}")
-    print(f"💾 Output: {current_output_path}")
-    
-    # ==== Load Text & Chunk ====
-    full_text = Path(current_input_path).read_text(encoding="utf-8")
-    chunks = chunk_text(full_text, MAX_TOKENS, OVERLAP, MODEL_NAME)
-    print(f"📄 Created {len(chunks)} chunks")
+def parse_triples_response(response_text: str) -> list[dict[str, Any]]:
+    """Parse a model response into a list of triple dictionaries."""
 
-    # ==== Load Existing ====
-    output_path_obj = Path(current_output_path)
-    if output_path_obj.exists():
-        with open(output_path_obj, "r", encoding="utf-8") as f:
-            try:
-                results = json.load(f)
-                print(f"🔄 Loaded {len(results)} existing results.")
-            except json.JSONDecodeError:
-                print("⚠️ JSON decode error. Starting fresh.")
-                results = [None] * len(chunks)
+    cleaned = response_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.strip("`")
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:].strip()
+
+    payload = json.loads(cleaned)
+    if isinstance(payload, dict):
+        triples = payload.get("triples", [])
+    elif isinstance(payload, list):
+        triples = payload
     else:
-        results = [None] * len(chunks)
-        output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+        raise ValueError("The extraction response must be a JSON list or an object with a 'triples' field.")
 
-    pending_indices = [i for i, r in enumerate(results) if r is None or "error" in r]
-    print(f"🕐 Remaining chunks to process: {len(pending_indices)}")
+    validated: list[dict[str, Any]] = []
+    for item in triples:
+        if not isinstance(item, dict):
+            continue
+        triple = item.get("triple")
+        subject = item.get("subject")
+        object_ = item.get("object")
+        if not isinstance(triple, list) or len(triple) != 3:
+            continue
+        if not isinstance(subject, dict) or not isinstance(object_, dict):
+            continue
+        validated.append(item)
+    return validated
 
-    if not pending_indices:
-        print("✅ All chunks already processed!")
-        return
 
-    # ==== Run ====
-    client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {
-            executor.submit(call_model, client, MODEL_NAME, chunks[idx], idx): idx
-            for idx in pending_indices
-        }
+def build_kv_store(chunks: list[str]) -> dict[str, dict[str, str]]:
+    """Create the chunk lookup structure used during answer generation."""
 
-        for future in tqdm(as_completed(futures), total=len(pending_indices), desc="Processing"):
-            idx = futures[future]
-            try:
-                result = future.result()
-                results[idx] = result
-                # 매 10개마다 저장
-                if idx % 10 == 0:
-                    with open(output_path_obj, "w", encoding="utf-8") as f:
-                        json.dump(results, f, ensure_ascii=False, indent=2)
-            except Exception as e:
-                print(f"❌ Error for chunk {idx}: {e}")
-                results[idx] = {"error": str(e), "chunk_index": idx}
-
-    # ==== Final Save ====
-    with open(output_path_obj, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
-
-    print(f"✅ Completed! Results saved to {current_output_path}")
-    
-    # 파이프라인 상태 업데이트
-    state = config.load_pipeline_state() or {}
-    state[dataset_name] = state.get(dataset_name, {})
-    state[dataset_name]['graph_construction'] = {
-        'completed': True,
-        'input_file': current_input_path,
-        'output_file': current_output_path,
-        'qa_file': str(config.get_qa_file())
+    return {
+        f"chunk-{index:05d}": {"content": chunk}
+        for index, chunk in enumerate(chunks)
     }
-    config.save_pipeline_state(state)
-    
-    return str(config.get_qa_file())
+
+
+
+def load_existing_blocks(output_path: Path) -> dict[str, dict[str, Any]]:
+    if not output_path.exists():
+        return {}
+
+    with output_path.open("r", encoding="utf-8") as handle:
+        try:
+            payload = json.load(handle)
+        except json.JSONDecodeError:
+            return {}
+
+    existing: dict[str, dict[str, Any]] = {}
+    if isinstance(payload, list):
+        for block in payload:
+            if isinstance(block, dict) and "chunk_id" in block:
+                existing[str(block["chunk_id"])] = block
+    return existing
+
+
+
+def call_model(client: OpenAI, model_name: str, chunk_text_value: str, chunk_id: str) -> dict[str, Any]:
+    prompt = EXTRACTION_PROMPT.replace("{{document}}", chunk_text_value.strip())
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": "You extract factual triples from text and return valid JSON."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.0,
+        max_tokens=get_config().max_tokens_response,
+        response_format={"type": "text"},
+    )
+    content = response.choices[0].message.content or "[]"
+    triples = parse_triples_response(content)
+    return {
+        "chunk_id": chunk_id,
+        "content": chunk_text_value,
+        "triples": triples,
+    }
+
+
+
+def save_blocks(output_path: Path, blocks: list[dict[str, Any]]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(blocks, handle, indent=2, ensure_ascii=False)
+
+
+
+def save_kv_store(output_path: Path, kv_store: dict[str, dict[str, str]]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as handle:
+        json.dump(kv_store, handle, indent=2, ensure_ascii=False)
+
+
+
+def run_graph_construction(config: THRAGConfig, force_rebuild: bool = False) -> str:
+    if not config.openai_api_key:
+        raise ValueError("OPENAI_API_KEY must be configured before running graph construction.")
+
+    input_path = config.get_contexts_file()
+    output_path = config.get_graph_json_file()
+    kv_store_path = config.get_kv_store_file()
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+
+    full_text = input_path.read_text(encoding="utf-8")
+    chunks = chunk_text(full_text, config.max_tokens, config.overlap, config.default_model)
+    kv_store = build_kv_store(chunks)
+    save_kv_store(kv_store_path, kv_store)
+
+    chunk_ids = list(kv_store.keys())
+    existing_blocks = {} if force_rebuild else load_existing_blocks(output_path)
+
+    ordered_blocks: list[dict[str, Any] | None] = [None] * len(chunks)
+    pending_indices: list[int] = []
+
+    for index, chunk_id in enumerate(chunk_ids):
+        existing_block = existing_blocks.get(chunk_id)
+        if existing_block and isinstance(existing_block.get("triples"), list):
+            ordered_blocks[index] = existing_block
+        else:
+            pending_indices.append(index)
+
+    if pending_indices:
+        client = OpenAI(api_key=config.openai_api_key)
+        with ThreadPoolExecutor(max_workers=config.max_workers) as executor:
+            futures = {
+                executor.submit(call_model, client, config.default_model, chunks[index], chunk_ids[index]): index
+                for index in pending_indices
+            }
+            for completed_count, future in enumerate(
+                tqdm(as_completed(futures), total=len(futures), desc="Extracting triples"),
+                start=1,
+            ):
+                index = futures[future]
+                try:
+                    ordered_blocks[index] = future.result()
+                except Exception as exc:
+                    ordered_blocks[index] = {
+                        "chunk_id": chunk_ids[index],
+                        "content": chunks[index],
+                        "triples": [],
+                        "error": str(exc),
+                    }
+
+                if completed_count % 10 == 0 or completed_count == len(futures):
+                    save_blocks(output_path, [block for block in ordered_blocks if block is not None])
+    else:
+        save_blocks(output_path, [block for block in ordered_blocks if block is not None])
+
+    final_blocks = [block for block in ordered_blocks if block is not None]
+    save_blocks(output_path, final_blocks)
+    config.mark_step_completed(
+        "graph_construction",
+        input_file=str(input_path),
+        output_file=str(output_path),
+        kv_store_file=str(kv_store_path),
+        chunks=len(chunks),
+    )
+    return str(output_path)
+
+
+
+def main(dataset_name: str, force_rebuild: bool = False) -> str:
+    """CLI-compatible entry point for graph construction."""
+
+    config = get_config(dataset_name)
+    print(f"Building graph inputs for dataset: {dataset_name}")
+    print(f"Input: {config.get_contexts_file()}")
+    print(f"Graph JSON: {config.get_graph_json_file()}")
+    print(f"KV store: {config.get_kv_store_file()}")
+    return run_graph_construction(config, force_rebuild=force_rebuild)
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Graph construction for KGRAG")
-    parser.add_argument("--dataset", required=True, help="Dataset name")
-    parser.add_argument("--input", help="Input contexts.txt file path")
-    parser.add_argument("--output", help="Output QA JSON file path")
-    
+    parser = argparse.ArgumentParser(description="Build graph-construction artifacts for a dataset.")
+    parser.add_argument("--dataset", required=True, help="Dataset name under data/<dataset>/")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Recompute chunk extraction even if output artifacts already exist.",
+    )
     args = parser.parse_args()
-    main(args.dataset, args.input, args.output)
+    main(dataset_name=args.dataset, force_rebuild=args.force)
+

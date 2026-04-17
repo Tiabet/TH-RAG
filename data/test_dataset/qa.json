@@ -1,0 +1,10 @@
+[
+  {
+    "query": "What index does TH-RAG use for predicate-edge retrieval?",
+    "answer": "FAISS"
+  },
+  {
+    "query": "Which stage produces short and long answers?",
+    "answer": "Answer generation"
+  }
+]

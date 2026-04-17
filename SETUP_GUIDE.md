@@ -1,172 +1,170 @@
-# KGRAG 그래프 구축 가이드
+# TH-RAG Setup Guide
 
-이 프로젝트는 텍스트에서 지식 그래프를 구축하고 RAG(Retrieval-Augmented Generation)를 수행하는 시스템입니다.
+This guide documents the public-release workflow for the TH-RAG codebase.
 
-## 🚀 빠른 시작
+## 1. Environment Setup
 
-### 1. 환경 설정
+Create and activate a virtual environment:
 
 ```bash
-# 가상환경 생성 (권장)
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 또는
-venv\Scripts\activate.bat  # Windows
+python -m venv .venv
+source .venv/bin/activate
+```
 
-# 패키지 설치
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
-
-# OpenAI API 키 설정
-export OPENAI_API_KEY="your-api-key-here"  # Linux/Mac
-# 또는
-set OPENAI_API_KEY=your-api-key-here  # Windows
 ```
 
-### 2. 데이터 준비
-
-각 데이터셋 폴더에 `contexts.txt` 파일을 준비하세요:
-
-```
-hotpotQA/
-  └── contexts.txt
-UltraDomain/
-  ├── CS/
-  │   └── contexts.txt
-  ├── Agriculture/
-  │   └── contexts.txt
-  └── ...
-```
-
-### 3. 그래프 구축
-
-#### 방법 1: 통합 스크립트 사용 (권장)
-
-**Windows:**
-```cmd
-run_all.bat
-```
-
-**Linux/Mac:**
-```bash
-chmod +x run_all.sh
-./run_all.sh
-```
-
-#### 방법 2: Python 스크립트 직접 사용
+Create the environment file:
 
 ```bash
-# 단일 데이터셋 처리
-python build_graph.py --dataset hotpotQA
-
-# 사용자 정의 입력 파일
-python build_graph.py --dataset mydata --input /path/to/contexts.txt
-
-# 특정 단계만 실행
-python build_graph.py --dataset hotpotQA --skip-extraction  # 트리플 추출 건너뛰기
-python build_graph.py --dataset hotpotQA --skip-gexf       # GEXF 변환 건너뛰기
-python build_graph.py --dataset hotpotQA --skip-index      # 인덱스 생성 건너뛰기
+cp .env.example .env
 ```
 
-#### 방법 3: 개별 스크립트 사용
+Set `OPENAI_API_KEY` in `.env` before running the pipeline.
+
+## 2. Prepare a Dataset
+
+Create a dataset directory under `data/`:
+
+```text
+data/
+|-- my_dataset/
+|   |-- contexts.txt
+|   `-- qa.json
+```
+
+`contexts.txt` should contain the source passages used for graph construction.
+
+`qa.json` should contain question-answer pairs in this format:
+
+```json
+[
+  {
+    "query": "Which component builds the graph?",
+    "answer": "Graph construction"
+  }
+]
+```
+
+## 3. Build Graph Artifacts
+
+Run the graph-building subset of the pipeline:
 
 ```bash
-# 1. 트리플 추출
-python graph_construction.py
-
-# 2. GEXF 변환
-python json_to_gexf.py input.json output.gexf
-
-# 3. 인덱스 생성
-python edge_embedding.py
+python pipeline.py --dataset my_dataset --steps graph_build
 ```
 
-## 📁 출력 파일 구조
+This stage produces:
 
-각 데이터셋 폴더에 다음 파일들이 생성됩니다:
+- `results/index/my_dataset_graph.json`
+- `results/index/my_dataset_kv_store.json`
+- `results/index/my_dataset_graph.gexf`
+- `results/index/my_dataset_edge_index.faiss`
+- `results/index/my_dataset_edge_payloads.npy`
 
-```
-dataset_name/
-├── contexts.txt              # 입력 텍스트
-├── graph_v1.json            # 추출된 트리플 (JSON)
-├── graph_v1.gexf            # 그래프 파일 (GEXF)
-├── graph_v1_processed.gexf  # 처리된 그래프 파일
-├── edge_index_v1.faiss      # FAISS 벡터 인덱스
-├── edge_payloads_v1.npy     # 메타데이터
-└── kv_store_text_chunks.json # 텍스트 청크 저장소
-```
-
-## 🔧 RAG 시스템 사용
-
-그래프가 구축되면 RAG 시스템을 사용할 수 있습니다:
+You can also run the graph-only wrapper directly:
 
 ```bash
-# 짧은 답변용
-python graph_based_rag_short.py
-
-# 긴 답변용  
-python graph_based_rag_long.py
-
-# 답변 생성 (배치 처리)
-python answer_generation_short.py
-python answer_generation_long.py
+python index/build_graph.py --dataset my_dataset
 ```
 
-## 📊 평가
+## 4. Generate Answers
+
+Short answers:
 
 ```bash
-# F1 스코어 평가
-python judge_F1.py
-
-# UltraDomain 평가
-python judge_Ultradomain.py
+python pipeline.py --dataset my_dataset --steps answer_generation_short
 ```
 
-## ⚠️ 주의사항
+Long answers:
 
-1. **OpenAI API 키**: 반드시 환경변수 또는 `.env` 파일에 설정
-2. **메모리**: 대용량 데이터셋의 경우 충분한 RAM 필요
-3. **인터넷 연결**: OpenAI API 호출을 위해 안정적인 인터넷 연결 필요
-4. **처리 시간**: 데이터셋 크기에 따라 수분~수시간 소요 가능
+```bash
+python pipeline.py --dataset my_dataset --steps answer_generation_long
+```
 
-## 🛠️ 문제 해결
+Both outputs together:
 
-### 일반적인 오류들:
+```bash
+python pipeline.py --dataset my_dataset --steps answer_generation
+```
 
-1. **API 키 오류**
-   ```
-   ValueError: OPENAI_API_KEY env var required.
-   ```
-   → 환경변수 `OPENAI_API_KEY` 설정 확인
+Artifacts are written to `results/generated/`, and chunk-usage logs are written to `results/chunks/`.
 
-2. **패키지 누락**
-   ```
-   ModuleNotFoundError: No module named 'xxx'
-   ```
-   → `pip install -r requirements.txt` 실행
+## 5. Run F1 Evaluation
 
-3. **메모리 부족**
-   ```
-   OutOfMemoryError
-   ```
-   → 더 작은 청크 크기 사용 또는 더 많은 RAM 확보
+The F1 evaluator compares the short-answer output against `data/<dataset>/qa.json`.
 
-4. **파일 경로 오류**
-   ```
-   FileNotFoundError: contexts.txt
-   ```
-   → 입력 파일 경로 확인
+```bash
+python pipeline.py --dataset my_dataset --steps evaluation
+```
 
-## 📈 성능 최적화
+The result is written to `results/evaluated/my_dataset_eval_f1.json`.
 
-- **병렬 처리**: `MAX_WORKERS` 값 조정
-- **청크 크기**: `MAX_TOKENS` 값 조정  
-- **배치 크기**: API 호출 배치 크기 조정
-- **캐싱**: 중간 결과 캐싱 활용
+## 6. Pairwise LLM Evaluation
 
-## 🤝 기여
+To compare TH-RAG against another system:
 
-버그 리포트, 기능 요청, 풀 리퀘스트를 환영합니다!
+```bash
+python evaluate/judge_Ultradomain.py \
+  --answer-a results/generated/my_dataset_answers_long.json \
+  --answer-b baseline_answers.json \
+  --output results/evaluated/my_dataset_pairwise.json \
+  --label-a TH-RAG \
+  --label-b Baseline
+```
 
-## 📄 라이센스
+Add `--plot results/evaluated/my_dataset_pairwise.png` to save a chart.
 
-Apache License 2.0
+## 7. Useful Commands
+
+List datasets:
+
+```bash
+python pipeline.py --list-datasets
+```
+
+Rebuild everything from scratch:
+
+```bash
+python pipeline.py --dataset my_dataset --force
+```
+
+Validate configuration:
+
+```bash
+python test_config.py
+```
+
+Run the test suite:
+
+```bash
+pytest
+```
+
+## 8. Troubleshooting
+
+### Missing API key
+
+If graph construction or evaluation fails immediately, confirm that `OPENAI_API_KEY` is set in `.env`.
+
+### Missing dataset files
+
+The pipeline requires `data/<dataset>/contexts.txt` for graph building and `data/<dataset>/qa.json` for answer generation and evaluation.
+
+### Existing outputs are reused
+
+The pipeline skips steps when the expected artifacts already exist. Use `--force` to rebuild them.
+
+### FAISS or OpenAI errors
+
+If the embedding stage fails, verify that the graph JSON and GEXF files were created successfully before rebuilding the index.

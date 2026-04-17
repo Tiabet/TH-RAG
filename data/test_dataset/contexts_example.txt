@@ -1,0 +1,10 @@
+TH-RAG is a topic-based hierarchical graph RAG pipeline for multi-hop reasoning.
+
+The public release includes four main stages.
+
+1. Graph construction extracts triples from source contexts and assigns topic and subtopic labels.
+2. Edge embedding builds a FAISS index over predicate-edge evidence.
+3. Answer generation retrieves graph evidence and produces short or long answers.
+4. Evaluation scores short answers with F1 metrics and supports pairwise LLM-based comparison.
+
+The repository expects each dataset to contain source contexts and question-answer pairs.
