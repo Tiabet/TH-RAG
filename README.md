@@ -1,7 +1,7 @@
 # TH-RAG
 
 Reference implementation for the ACL 2026 paper **TH-RAG: Topic-Based Hierarchical Knowledge Graphs for Robust Multi-hop Reasoning in Graph-based RAG Systems**.
-You can check the paper here: [Paper](./paper.pdf)
+You can check the paper here: [Paper](./TH-RAG.pdf)
 
 This repository contains the end-to-end research pipeline used to:
 
